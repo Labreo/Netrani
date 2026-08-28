@@ -75,6 +75,24 @@ out/
 target/
 .cache/
 
+# Python & Testing Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+.netrani/
+
+# Temporary & Scratch Files
+temp/
+
 # Project Planning & Demo Notes
 Netrani_Demo_Script.md
 Netrani_Final_Project_Document.md

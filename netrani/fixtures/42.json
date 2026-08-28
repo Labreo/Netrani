@@ -1,0 +1,7 @@
+{
+  "title": "Example: panic in database connection pool",
+  "body": "## Description\n\nSince upgrading to v1.3.2 the server panics with `ConnectionPool.Acquire` throwing a nil pointer.\n\n## Steps to Reproduce\n\n1. Start the server with `--config config/dev.yaml`\n2. Send 50 concurrent requests to `/api/health`\n3. Observe panic in stderr\n\n## Expected Behavior\n\nRequests should return HTTP 200.\n\n## Environment\n\n- OS: Ubuntu 22.04\n- Go version: 1.21.0\n- Version: v1.3.2\n",
+  "author": "test-user",
+  "labels": ["bug", "p1"],
+  "url": "https://github.com/example/repo/issues/42"
+}

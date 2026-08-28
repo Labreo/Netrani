@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""Executable entrypoint for the `netrani` CLI."""
+import sys
+import os
+
+# Allow running directly from the repo root without installation
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from netrani.cli import main
+
+sys.exit(main())

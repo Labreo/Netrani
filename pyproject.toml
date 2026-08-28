@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "netrani"
+version = "0.1.0"
+description = "General-purpose issue triage and verification tool built on IBM Bob 2.0"
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []   # zero heavyweight external dependencies
+
+[project.scripts]
+netrani = "netrani.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["netrani*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
