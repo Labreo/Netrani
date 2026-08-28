@@ -1,0 +1,14 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "^(write_file|apply_diff|edit_file)$",
+      "command": "sh .bob/hooks/gate-fix.sh"
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "^execute_command$",
+      "command": "sh .bob/hooks/record-verdict.sh"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://netrani.local/verdict.schema.json",
+  "title": "NetraniVerdict",
+  "description": "Deterministic triage verdict emitted by Netrani after three-tier issue verification.",
+  "type": "object",
+  "required": [
+    "status",
+    "citation",
+    "rationale",
+    "confidence",
+    "timestamp",
+    "target_repo",
+    "issue_reference"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["VALID", "DUPLICATE", "OBSOLETE", "FALSE_POSITIVE"],
+      "description": "Canonical triage outcome. VALID means the defect is real and unresolved. DUPLICATE means an identical root-cause issue is already tracked. OBSOLETE means the defect was fixed in a prior commit. FALSE_POSITIVE means code inspection proves the failure mode cannot occur."
+    },
+    "citation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Evidence citation. For VALID: reproduction trace or file:line path. For DUPLICATE: issue/PR URL. For OBSOLETE: full commit SHA. For FALSE_POSITIVE: file path and line number range proving impossibility."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Human-readable explanation of the verdict, summarising findings from all three verification tiers."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Confidence score for the verdict, expressed as a float between 0.0 (no confidence) and 1.0 (certainty)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp at which the verdict was recorded (e.g. 2025-01-15T14:32:00Z)."
+    },
+    "target_repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository identifier being triaged (e.g. owner/repo or full remote URL)."
+    },
+    "issue_reference": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The issue, ticket, or bug report being triaged (e.g. GitHub issue URL, JIRA ticket ID, or free-form identifier)."
+    }
+  }
+}
