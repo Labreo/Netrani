@@ -196,6 +196,7 @@ def _stage_triage(
     issue: dict[str, Any],
     verbose: bool,
     verdict_path_override: Path | None = None,
+    use_bob: bool = False,
 ) -> StageResult:
     """Stage 3 + 4: Run triage and write verdict.json."""
     vpath = verdict_path_override or config.verdict_path(repo_root)
@@ -212,9 +213,12 @@ def _stage_triage(
             issue_url=issue.get("url", ""),
             verdict_path=str(vpath),
             quiet=not verbose,
+            use_bob=use_bob,
+            escalate_to_bob=True,
         )
         _vlog(verbose, "stage_complete", stage="triage",
-              status=verdict["status"], confidence=verdict["confidence"])
+              status=verdict["status"], confidence=verdict["confidence"],
+              use_bob=use_bob)
         return StageResult(
             stage_name="triage",
             success=True,
@@ -492,6 +496,7 @@ def run_pipeline(
     dry_run_dir: str = ".bob/dry_run",
     create_pr: bool = False,
     base_branch: str = "main",
+    use_bob: bool = False,
 ) -> int:
     """
     Execute the full eight-stage Netrani pipeline.
@@ -514,6 +519,8 @@ def run_pipeline(
         If True and not dry-run, push branch and submit PR via gh CLI.
     base_branch:
         Target base branch for PR (default: main).
+    use_bob:
+        If True, orchestrate triage, fix, and verification via IBM Bob 2.0 Agent Mode.
 
     Returns
     -------
@@ -526,7 +533,7 @@ def run_pipeline(
     verdict_status = "UNKNOWN"
 
     _vlog(verbose, "pipeline_start", run_id=run_id, repo=str(repo),
-          issue_ref=issue_ref, dry_run=dry_run)
+          issue_ref=issue_ref, dry_run=dry_run, use_bob=use_bob)
 
     # ── Stage 1: Issue Ingestion ──────────────────────────────────────────────
     s1 = _stage_issue_ingestion(issue_ref, offline, verbose)
@@ -551,7 +558,7 @@ def run_pipeline(
     profile_path_str: str = s2.data["profile_path"]
 
     # ── Stage 3 + 4: Triage + Verdict Output ─────────────────────────────────
-    s3 = _stage_triage(repo, issue, verbose)
+    s3 = _stage_triage(repo, issue, verbose, use_bob=use_bob)
     completed_stages.append(s3)
     if not s3.success:
         log.error("[Stage 3] Triage failed: %s", s3.error)

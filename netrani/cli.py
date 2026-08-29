@@ -263,6 +263,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Operation mode: triage (default), fix, or full.",
     )
     run_cmd.add_argument(
+        "--use-bob", "--bob",
+        dest="use_bob",
+        action="store_true",
+        help="Orchestrate triage, fix, and verification via IBM Bob 2.0 Agent Mode and custom modes.",
+    )
+    run_cmd.add_argument(
+        "--bob-mode",
+        default="auto",
+        choices=["auto", "history-miner", "static-validator", "surgical-fixer", "test-runner"],
+        help="Select IBM Bob 2.0 custom persona (default: auto).",
+    )
+    run_cmd.add_argument(
         "--create-pr",
         action="store_true",
         help="Push branch to origin and create a GitHub pull request via gh CLI (VALID only).",
@@ -317,6 +329,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--title",
         default="",
         help="Optional explicit issue title override.",
+    )
+    triage_cmd.add_argument(
+        "--use-bob", "--bob",
+        dest="use_bob",
+        action="store_true",
+        help="Route triage verification through IBM Bob 2.0 Agent Mode custom modes.",
     )
     triage_cmd.add_argument(
         "--offline",
@@ -405,6 +423,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     _prepare_workspace(ctx, repo_path, verbose)
 
     # 7. Execute mode
+    use_bob = getattr(args, "use_bob", False)
     if args.mode in ("full", "fix"):
         from netrani.pipeline.orchestrator import run_pipeline
         return run_pipeline(
@@ -415,6 +434,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             offline=args.offline,
             create_pr=args.create_pr,
             base_branch=args.base_branch,
+            use_bob=use_bob,
         )
 
     if args.mode == "triage":
@@ -432,6 +452,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 reproduction_trace=issue.get("reproduction_trace", []),
                 issue_url=issue.get("url", ""),
                 quiet=not verbose,
+                use_bob=use_bob,
+                escalate_to_bob=True,
             )
             return 0
         except Exception as exc:  # noqa: BLE001
@@ -445,6 +467,7 @@ def _cmd_triage(args: argparse.Namespace) -> int:
     repo_path = _resolve_repo(args.repo, verbose=False)
     issue = fetch_issue(args.issue, offline=args.offline)
     title = args.title or issue.get("title", "")
+    use_bob = getattr(args, "use_bob", False)
 
     from netrani.triage import orchestrator as triage_orchestrator
     try:
@@ -457,6 +480,8 @@ def _cmd_triage(args: argparse.Namespace) -> int:
             reproduction_trace=issue.get("reproduction_trace", []),
             issue_url=issue.get("url", ""),
             quiet=args.quiet,
+            use_bob=use_bob,
+            escalate_to_bob=True,
         )
         return 0
     except Exception as exc:  # noqa: BLE001

@@ -270,6 +270,8 @@ def run(
     issue_url: str = "",
     verdict_path: str | Path = ".bob/verdict.json",
     quiet: bool = False,
+    use_bob: bool = False,
+    escalate_to_bob: bool = False,
 ) -> dict[str, Any]:
     """
     Execute the full three-tier triage workflow and write ``.bob/verdict.json``.
@@ -295,6 +297,10 @@ def run(
         Where to write the verdict JSON (default: ``.bob/verdict.json``).
     quiet:
         When True, suppress the ASCII summary table output.
+    use_bob:
+        When True, route triage through IBM Bob 2.0 Agent Mode custom personas.
+    escalate_to_bob:
+        When True, automatically escalate ambiguous/boundary cases to IBM Bob Agent Mode.
 
     Returns
     -------
@@ -327,6 +333,26 @@ def run(
 
     # ── Tier 3: Synthesis ────────────────────────────────────────────────────
     status, citation, rationale, confidence = _synthesise(history_findings, static_findings)
+
+    # ── IBM Bob 2.0 Agent Mode Escalation ────────────────────────────────────
+    if use_bob or (escalate_to_bob and confidence < 0.80):
+        try:
+            from netrani.bob.agent import run_bob_escalation
+            bob_res = run_bob_escalation(
+                repo_path=repo,
+                title=title,
+                body=body,
+                suspect_symbols=suspect_symbols,
+                reproduction_trace=reproduction_trace,
+                issue_ref=issue_reference or issue_url,
+            )
+            if bob_res.get("bob_escalated"):
+                status = bob_res["status"]
+                confidence = bob_res["confidence"]
+                citation = bob_res["citation"] or citation
+                rationale = f"{bob_res['rationale']} [Verified via IBM Bob 2.0 Agent Mode]"
+        except Exception as exc:
+            log.warning("Bob agent escalation encountered an issue: %s", exc)
 
     target_repo = _detect_target_repo(repo)
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
