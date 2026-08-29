@@ -229,7 +229,8 @@ def _extract_keywords(
     for m in re.finditer(r"\b([A-Z][a-zA-Z0-9]{2,})\b", title):
         _add(m.group(1))
 
-    for m in re.finditer(r"\b(OTEL_[A-Z0-9_]{4,})\b", full_text):
+    # Extract SCREAMING_SNAKE_CASE env-var-style tokens (e.g. OTEL_SDK_DISABLED, AWS_REGION)
+    for m in re.finditer(r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+){1,})\b", full_text):
         _add(m.group(1))
 
     # Domain keywords in title (e.g. variadic, toolexec, cgo, import, duplicate)
@@ -498,12 +499,6 @@ def _search_unmerged_duplicates(
         if m:
             search_terms.append(f"#{m.group(1)}")
 
-    if any("cache" in a for a in area_anchors) and any("race" in s or "corrupt" in s for s in symptom_anchors):
-        search_terms.extend(["#703", "712", "cache", "build lock"])
-    if any("registration" in s or "count=2" in s for s in symptom_anchors):
-        search_terms.extend(["#681", "688", "registration", "sync.Once"])
-    if any("nobody" in s or "body.size" in s for s in symptom_anchors):
-        search_terms.extend(["#561", "571", "NoBody", "body.size"])
 
     for term in search_terms[:10]:
         if len(term) < 3 or _is_generic_word(term):
@@ -556,49 +551,6 @@ def _search_unmerged_duplicates(
                     "evidence": [f"off-branch({term!r}): {line}"],
                 })
 
-    if not duplicate_candidates:
-        if any("cache" in a for a in area_anchors) and any("race" in s or "corrupt" in s for s in symptom_anchors):
-            duplicate_candidates.append({
-                "sha": "712abc703",
-                "full_sha": "712abc7030000000000000000000000000000000",
-                "commit_timestamp": 1720000000,
-                "subject": "fix(cache): isolate per-process build cache (#712)",
-                "on_default": False,
-                "has_fix": True,
-                "verdict": "DUPLICATE",
-                "confidence": 0.75,
-                "citation": "https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation/issues/703",
-                "rationale": "Identical race condition on shared instrumentation cache is tracked in open issue #703 and PR #712.",
-                "evidence": ["duplicate(issue #703): shared cache race condition"],
-            })
-        elif any("registration" in s or "count=2" in s for s in symptom_anchors):
-            duplicate_candidates.append({
-                "sha": "688abc681",
-                "full_sha": "688abc6810000000000000000000000000000000",
-                "commit_timestamp": 1720000000,
-                "subject": "fix(init): guard global provider registration with sync.Once (#688)",
-                "on_default": False,
-                "has_fix": True,
-                "verdict": "DUPLICATE",
-                "confidence": 0.75,
-                "citation": "https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation/issues/681",
-                "rationale": "Duplicate init() registration panic under go test -count=2 is tracked in open issue #681 and PR #688.",
-                "evidence": ["duplicate(issue #681): duplicate registration panic under -count=2"],
-            })
-        elif any("nobody" in s or "body.size" in s for s in symptom_anchors):
-            duplicate_candidates.append({
-                "sha": "571abc561",
-                "full_sha": "571abc5610000000000000000000000000000000",
-                "commit_timestamp": 1720000000,
-                "subject": "fix(http): emit http.request.body.size = 0 for http.NoBody (#571)",
-                "on_default": False,
-                "has_fix": True,
-                "verdict": "DUPLICATE",
-                "confidence": 0.75,
-                "citation": "https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation/issues/561",
-                "rationale": "Missing http.request.body.size attribute for http.NoBody requests is tracked in open issue #561 and PR #571.",
-                "evidence": ["duplicate(issue #561): missing http.request.body.size for NoBody"],
-            })
 
     return duplicate_candidates
 

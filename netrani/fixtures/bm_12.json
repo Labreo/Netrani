@@ -1,7 +1,0 @@
-{
-  "title": "Instrumentation adds incorrect span end to functions returning early via named error",
-  "body": "## Description\n\nWhen a function uses an early return on a named error result, the instrumented code places `defer span.End()` AFTER the early return, meaning the span is never closed on the error path:\n\n```go\nfunc doWork(ctx context.Context) (err error) {\n    if err = validate(); err != nil {\n        return // <-- span.End() never called on this path\n    }\n    // ... span.End() deferred here instead\n}\n```\n\n## Steps to Reproduce\n\n1. Instrument a function with an early `return` before `defer span.End()`\n2. Trigger the error path\n3. Observe unclosed spans in your tracing backend\n\n## Environment\n\n- go_version: go1.22.0\n- version: v0.1.0-alpha.3",
-  "author": "benchmark-runner",
-  "labels": [],
-  "url": "https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation/issues/672"
-}

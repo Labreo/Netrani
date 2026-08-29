@@ -297,7 +297,7 @@ _PROTECTIVE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"if\s+\w[\w.]*\s*!=\s*nil\b"), "nil-guard"),
     # Go type assertion with ok idiom: x, ok := y.(T)
     (re.compile(r"\w+\s*,\s*ok\s*:=\s*\w[\w.]*\.\([^)]+\)"), "type-assertion-guard"),
-    # Go EqualFold / strings.EqualFold for env checks (e.g. OTEL_SDK_DISABLED)
+    # Go EqualFold / strings.EqualFold for env checks (e.g. SDK_DISABLED)
     (re.compile(r"strings\.EqualFold\s*\("), "strings-equalfold-guard"),
     # Go boolean flag / disabled env var checks
     (re.compile(r"\bif\b.*\bDisabled\b|\bif\b.*\bSdkDisabled\b", re.IGNORECASE), "disabled-flag-guard"),
@@ -305,8 +305,8 @@ _PROTECTIVE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"defer\s+[A-Za-z0-9_.]+\("), "defer-lifecycle-guard"),
     # Panic recovery guards
     (re.compile(r"\brecover\(\)"), "recover-guard"),
-    # OTel SDK sentinel no-op returns that cannot be nil
-    (re.compile(r"otel\.Get[A-Za-z0-9_]+\(\)|otel\.GetTracerProvider\(\)"), "otel-sentinel-guard"),
+    # SDK singleton/no-op getters that return sentinel values (e.g. otel.GetTracerProvider(), grpc.GetServiceConfig())
+    (re.compile(r"\w+\.Get[A-Za-z0-9_]+(?:Provider|Config|Instance|Registry)\(\)"), "sdk-sentinel-guard"),
 ]
 
 _GUARD_PATTERNS = [
@@ -319,14 +319,14 @@ _GUARD_PATTERNS = [
     (r"\w+\s*,\s*ok\s*:=\s*\w[\w.]*\.\([^)]+\)", "type-assertion-guard"),
     # Go boolean flag / env var check
     (r"if\s+\w[\w.]*\s*\{", "bool-flag-guard"),
-    # Go EqualFold / strings.EqualFold for env checks (e.g. OTEL_SDK_DISABLED)
+    # Go EqualFold / strings.EqualFold for env checks (e.g. SDK_DISABLED)
     (r"strings\.EqualFold\s*\(", "strings-equalfold-guard"),
     # Go defer lifecycles (e.g. defer span.End(), defer r.Body.Close())
     (r"defer\s+[A-Za-z0-9_.]+\(", "defer-lifecycle-guard"),
     # Panic recovery guards
     (r"\brecover\(\)", "recover-guard"),
-    # OTel SDK sentinel no-op returns that cannot be nil
-    (r"otel\.Get[A-Za-z0-9_]+\(\)|otel\.GetTracerProvider\(\)", "otel-sentinel-guard"),
+    # SDK singleton/no-op getters that return sentinel values
+    (r"\w+\.Get[A-Za-z0-9_]+(?:Provider|Config|Instance|Registry)\(\)", "sdk-sentinel-guard"),
     # Go early return
     (r"\breturn\b", "early-return"),
     # Rust unwrap-or / if let
@@ -355,7 +355,7 @@ def _extract_target_tokens(symbol: str) -> set[str]:
     for tok in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", symbol):
         tokens.add(tok.lower())
     if "traceprovider" in tokens or "tracerprovider" in tokens:
-        tokens.update({"traceprovider", "tracerprovider", "tracer", "provider", "otel"})
+        tokens.update({"traceprovider", "tracerprovider", "tracer", "provider"})
     meaningful = {t for t in tokens if len(t) > 1 and t not in _IGNORE_TOKENS}
     if not meaningful:
         meaningful = {t for t in tokens if len(t) > 1}
@@ -391,14 +391,15 @@ def _is_guard_correlated(
         guard_tokens_lower = {t.lower() for t in guard_tokens if t.lower() not in _IGNORE_TOKENS}
         return bool(guard_tokens_lower & target_tokens)
 
-    if label == "otel-sentinel-guard":
+    if label == "sdk-sentinel-guard":
         sentinel_targets = {
-            "otel", "tracer", "provider", "traceprovider", "tracerprovider", "sdk",
-            "disabled", "start", "httpclientinstrumenter", "instrumenter",
+            "provider", "config", "instance", "registry", "tracer",
+            "traceprovider", "tracerprovider", "sdk",
+            "disabled", "start", "instrumenter",
         }
         if target_tokens & sentinel_targets:
             return True
-        if any(w in sym_lower for w in ("traceprovider", "tracerprovider", "tracer", "otel", "sdk")):
+        if any(w in sym_lower for w in ("provider", "config", "registry", "instance", "sdk")):
             return True
         return False
 
@@ -419,7 +420,7 @@ def _is_guard_correlated(
         return bool(target_tokens & {"panic", "recover", "recovery"}) or "panic" in ctx_lower or "panic" in sym_lower
 
     if label in ("strings-equalfold-guard", "disabled-flag-guard"):
-        if target_tokens & {"disabled", "sdkdisabled", "otel_sdk_disabled", "sdk", "env"}:
+        if target_tokens & {"disabled", "sdkdisabled", "sdk_disabled", "sdk", "env"}:
             return True
         if "disabled" in sym_lower or "sdk" in sym_lower or "disabled" in ctx_lower:
             return True
@@ -554,7 +555,7 @@ def _analyse_go_function(
       - boolean flag / env-var checks (``strings.EqualFold``, ``Disabled``)
       - defer lifecycles (``defer span.End()``, ``defer r.Body.Close()``)
       - panic recovery (``recover()``)
-      - OTel sentinel constructors (``otel.GetTracerProvider()``)
+      - SDK singleton/sentinel getters (e.g. ``pkg.GetTracerProvider()``)
 
     Guard counting is strictly restricted to the enclosing Go ``func`` body.
 
