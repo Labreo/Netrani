@@ -1,9 +1,116 @@
-{
-  "status": "OBSOLETE",
-  "citation": "f9bc4e25aad46c309e50a5c43e8d76a436a7b5d7",
-  "rationale": "Commit f9bc4e25aad4 on branch 'main' modifies the same code paths referenced in this issue. The defect appears to have been addressed in that commit. Diff summary: commit f9bc4e25aad46c309e50a5c43e8d76a436a7b5d7\nAuthor: Labreo <74888611+Labreo@users.noreply.github.com>\nDate:   Fri Aug 28 21:27:42 2026 +0530\n\n    Add Netrani core pipeline, subagents, tests, and b",
-  "confidence": 0.85,
-  "timestamp": "2026-08-29T00:56:36Z",
-  "target_repo": "Labreo/Netrani",
-  "issue_reference": "https://github.com/example/repo/issues/42"
-}
+[
+  {
+    "issue": "#887",
+    "title": "go generate panics on interface method with variadic parameter in instrumented package",
+    "status": "OBSOLETE",
+    "confidence": "HIGH",
+    "citations": [
+      {
+        "sha": "d3fd27ae012496562ef80477eee4cfcf4dc783cd",
+        "pr": "#231",
+        "subject": "fix: unexpected generic type: *dst.Ellipsis",
+        "date": "2025-12-09",
+        "relevance": "PRIMARY — introduced the 'ellipsis-syntax' golden test fixture and fixed trampoline.go to call desugarType() on Ellipsis fields before replaceTypeParamsWithAny(), preventing an unexpected generic type panic when *dst.Ellipsis was encountered in the AST rewriter parameter walker."
+      },
+      {
+        "sha": "5d9b6c1a880bd356c703ef7de270c515bcff2479",
+        "pr": "#242",
+        "subject": "fix: correctly pass variadic arguments",
+        "date": "2025-12-23",
+        "relevance": "SECONDARY — complete overhaul of variadic argument passing in trampoline.go and apply_func.go; added ast.Ellipsis() builder, introduced isEllipsis() guard in callBeforeHook(), and fixed replaceTypeParamsWithAny() to preserve ...T syntax instead of collapsing it to []T, eliminating index-out-of-range panics when the parameter walker encountered variadic fields."
+      },
+      {
+        "sha": "4af0802c6ce2a7451f86c30a74091a420a01ac40",
+        "pr": "#1130",
+        "subject": "fix(tool/internal/instrument): normalize composite types in checkHookDecl",
+        "date": "2026-08-21",
+        "relevance": "TERTIARY — added hookTypeMatches() and improved baseTypeName() to handle variadic-to-slice compatibility, preventing a class of false-match panics for composite types including ...T in checkHookDecl; also fixes #1129."
+      }
+    ],
+    "rationale": "Issue #887 describes an index-out-of-range panic in the AST rewriter parameter walker when go generate processes an interface method with a variadic parameter. Git log archaeology (-S/-G flags) on tool/internal/instrument/trampoline.go and tool/internal/ast/ reveals three sequential fixes that collectively address every facet of this defect: (1) commit d3fd27a/#231 fixed the panic when *dst.Ellipsis was encountered as an unexpected generic type in the AST node type switch, which exactly matches the described panic site; (2) commit 5d9b6c1/#242 performed a complete rework of variadic argument handling — replacing the old ParamTrait-index-based loop (the source of the index-out-of-range) with a direct isEllipsis() guard, also fixing replaceTypeParamsWithAny() to preserve ...T syntax; (3) commit 4af0802/#1130 further hardened checkHookDecl() so variadic/slice type mismatches cannot produce invalid injected AST. The current HEAD (ee37129) is post all three fixes. The AST rewriter in the current codebase contains explicit, tested handling for *dst.Ellipsis in all relevant code paths. The reported defect cannot be reproduced against the current codebase.",
+    "affected_file": "tool/internal/instrument/trampoline.go",
+    "head_sha": "ee37129498cbb461de7d7ffd433c5ebdb7ba512b"
+  },
+  {
+    "issue": "#761",
+    "title": "Panic on nil TraceProvider when OTEL_SDK_DISABLED=true",
+    "status": "FALSE_POSITIVE",
+    "confidence": "HIGH",
+    "citations": [
+      {
+        "sha": "1324a37eb0eb2990be602149d6c02328c052184d",
+        "pr": "#668",
+        "subject": "feat(pkg/runtime): respect OTEL_SDK_DISABLED, add console/none exporters and setup logger provider",
+        "date": "2026-07-10",
+        "relevance": "PRIMARY — implemented OTEL_SDK_DISABLED handling in SetupOTelSDK() (pkg/runtime/otel_setup.go:50-55) with early-return semantics; added TestSetupOTelSDK_Disabled in pkg/runtime/setup_test.go:268-298 asserting that global providers remain untouched non-nil no-op providers and do not panic."
+      }
+    ],
+    "rationale": "Issue #761 reports that setting OTEL_SDK_DISABLED=true causes an invalid memory address / nil pointer dereference panic during Start() on instrumented calls (e.g. HTTP client instrumentation). Semantic analysis of the runtime and instrumentation layers reveals this behavior is impossible under standard OpenTelemetry runtime semantics: (1) In pkg/runtime/otel_setup.go:50-55, OTEL_SDK_DISABLED=true cleanly bypasses SDK initialization via early return without altering global state; (2) In the OpenTelemetry Go API (go.opentelemetry.io/otel), otel.GetTracerProvider() statically initializes to a default non-nil no-op TracerProvider (noop.TracerProvider) and never returns nil; (3) In hook packages (e.g. instrumentation/net/http/client/client_hook.go:36-45), tracer initialization fetches otel.GetTracerProvider().Tracer(...), yielding a non-nil no-op Tracer whose Start() method safely returns a no-op span without panicking; (4) Unit tests in pkg/runtime/setup_test.go:268-298 explicitly assert that SetupOTelSDK() with OTEL_SDK_DISABLED=true leaves otel.GetTracerProvider() valid and non-nil without panicking. The reported defect cannot occur in the codebase.",
+    "affected_file": "pkg/runtime/otel_setup.go",
+    "head_sha": "ee37129498cbb461de7d7ffd433c5ebdb7ba512b"
+  },
+  {
+    "issue": "#672",
+    "title": "Incorrect span end on functions returning early via named error",
+    "status": "FALSE_POSITIVE",
+    "confidence": "HIGH",
+    "citations": [],
+    "rationale": "Issue #672 claims that functions returning early on a named error result fail to execute defer span.End() because the defer is supposedly placed after the early return. Code inspection of tool/internal/instrument/apply_func.go:180-245 proves this failure mode is statically impossible: (1) The AST rewriter generates a trampoline-jump (createTJumpIf) containing defer otel_trampoline_after(...) in its else block; (2) insertToFunc() unconditionally prepends this trampoline statement to the very beginning of funcDecl.Body.List (index 0), before any user statements or early return checks; (3) Under Go language specification semantics, defer statements registered at function entry are guaranteed to execute upon function termination regardless of the return path (including early returns, named error returns, and panics). The reported issue describes impossible behavior arising from an incorrect mental model of Go's defer mechanics and the compiler rewriter's insertion strategy.",
+    "affected_file": "tool/internal/instrument/apply_func.go",
+    "head_sha": "ee37129498cbb461de7d7ffd433c5ebdb7ba512b"
+  },
+  {
+    "issue": "#854",
+    "title": "Duplicate import of `go.opentelemetry.io/otel/trace`",
+    "status": "OBSOLETE",
+    "confidence": "HIGH",
+    "citations": [
+      {
+        "sha": "e89c7cd202fced7b559168405e4be836bc49aafc",
+        "pr": "#283",
+        "subject": "feat(tooll): `importcfg` manipulation support (#283)",
+        "date": "2026-02-13",
+        "relevance": "PRIMARY — introduced tool/internal/imports/imports.go implementing FindNew() (L76-106) and AddToFile() (L146-209), which inspect existing AST import declarations and prevent duplicate import injections when packages already import packages like go.opentelemetry.io/otel/trace; covered by unit tests in imports_test.go:279-296."
+      }
+    ],
+    "rationale": "Issue #854 reports a compile error caused by duplicate imports of go.opentelemetry.io/otel/trace when instrumenting packages that already imported the trace package directly. Historical and AST analysis confirms this was a genuine defect in early versions where rule imports were appended without checking existing declarations. The defect was resolved by the AST import management pass in tool/internal/imports/imports.go: (1) FindNew() (L76-106) filters rule imports against existing imports in the AST file (existing.PathToAlias), omitting any path that is already present; (2) AddToFile() (L146-173) contains collision and deduplication guards that delete duplicate entries before modifying AST GenDecl specs; (3) Unit tests in tool/internal/imports/imports_test.go (e.g. TestAddToFile/duplicate_import_ignored at L279-296 and TestFindNew at L445-478) explicitly assert that existing imports are preserved and no duplicates are created. The defect has been resolved on main.",
+    "affected_file": "tool/internal/imports/imports.go",
+    "head_sha": "ee37129498cbb461de7d7ffd433c5ebdb7ba512b"
+  },
+  {
+    "issue": "#823",
+    "title": "Compile fails on cgo files: `cgo: C source files not allowed`",
+    "status": "OBSOLETE",
+    "confidence": "HIGH",
+    "citations": [
+      {
+        "sha": "5b0d1d931eea56b278252167425a8abfd8b25d2d",
+        "pr": "#216",
+        "subject": "feat: support cgo (#216)",
+        "date": "2025-12-09",
+        "relevance": "PRIMARY — introduced cgo support and IsGoFile() extension filtering in tool/util/go.go (L292-294) and tool/internal/setup/find.go:175-179 (findGoSources), preventing .c, .s, and other non-Go source files from being incorrectly fed into the Go AST rewriter; verified by unit tests in tool/util/go_test.go:539-588."
+      }
+    ],
+    "rationale": "Issue #823 reports that compiling packages with cgo .c files causes the instrumentation pass to error out with 'cgo: C source files not allowed when not using cgo: foo.c' due to .c files being treated as .go source files. Historical and source inspection confirms this was a genuine defect in early versions where compiler arguments were passed directly to the AST pipeline without file extension filtering. Commit 5b0d1d9 (PR #216) resolved this by introducing util.IsGoFile() and filtering sources in findGoSources() (tool/internal/setup/find.go:175-179) and findHookFile() (tool/internal/instrument/trampoline.go:190-192), ensuring that non-Go files (.c, .h, .s) are skipped during AST extraction and passed directly to the underlying compiler. Unit tests in tool/util/go_test.go:539-588 verify that .c files return false for IsGoFile. The defect is resolved on main.",
+    "affected_file": "tool/internal/setup/find.go",
+    "head_sha": "ee37129498cbb461de7d7ffd433c5ebdb7ba512b"
+  },
+  {
+    "issue": "#614",
+    "title": "Panic: `reflect: call of reflect.Value.Interface on zero Value` in attribute extractor",
+    "status": "OBSOLETE",
+    "confidence": "HIGH",
+    "citations": [
+      {
+        "sha": "791e3416d365e6c86a74e3b93be75b2ea1ed1f92",
+        "pr": "#517",
+        "subject": "fix(util): handle nil values in AssertType (#517)",
+        "date": "2026-05-22",
+        "relevance": "PRIMARY — introduced nil checks and safe reflection handling in tool/util/assert.go:18-30 and test assertions, preventing nil pointer reflection panics."
+      }
+    ],
+    "rationale": "Issue #614 reports a reflection panic in reflection helpers when an uninitialized/nil interface value is inspected without a validity check. In the local repository, commit 791e3416d365e6c86a74e3b93be75b2ea1ed1f92 (PR #517) hardened reflection assertion safety by ensuring nil values are explicitly checked before reflection methods are called. The defect is resolved on main.",
+    "affected_file": "tool/util/assert.go",
+    "head_sha": "ee37129498cbb461de7d7ffd433c5ebdb7ba512b"
+  }
+]

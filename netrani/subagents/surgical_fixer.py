@@ -77,7 +77,16 @@ def _load_verdict(verdict_path: str | Path) -> dict[str, Any]:
                "Run triage first before invoking the surgical fixer.")
 
     try:
-        obj: dict[str, Any] = json.loads(vpath.read_text(encoding="utf-8"))
+        raw_obj: Any = json.loads(vpath.read_text(encoding="utf-8"))
+        if isinstance(raw_obj, list):
+            valid_items = [item for item in raw_obj if isinstance(item, dict) and item.get("status") == "VALID"]
+            obj = valid_items[0] if valid_items else (raw_obj[0] if raw_obj and isinstance(raw_obj[0], dict) else {})
+            if "issue" in obj and "issue_reference" not in obj:
+                obj["issue_reference"] = obj["issue"]
+        elif isinstance(raw_obj, dict):
+            obj = raw_obj
+        else:
+            obj = {}
     except (json.JSONDecodeError, OSError) as exc:
         _abort(f"Cannot read verdict file {vpath}: {exc}")
 

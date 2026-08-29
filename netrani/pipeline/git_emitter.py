@@ -317,6 +317,128 @@ def _build_pr_draft(
 
 
 # ---------------------------------------------------------------------------
+# GitHub PR submission helpers
+# ---------------------------------------------------------------------------
+
+
+def check_gh_cli_status() -> dict[str, Any]:
+    """Check if GitHub CLI (gh) is installed and authenticated."""
+    try:
+        ver = subprocess.run(
+            ["gh", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if ver.returncode != 0:
+            return {"installed": False, "authenticated": False, "error": "gh command not found"}
+        auth = subprocess.run(
+            ["gh", "auth", "status"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        is_auth = auth.returncode == 0
+        return {
+            "installed": True,
+            "authenticated": is_auth,
+            "error": "" if is_auth else auth.stderr.strip() or auth.stdout.strip(),
+        }
+    except FileNotFoundError:
+        return {"installed": False, "authenticated": False, "error": "gh not found in PATH"}
+    except Exception as exc:  # noqa: BLE001
+        return {"installed": False, "authenticated": False, "error": str(exc)}
+
+
+def create_github_pr(
+    repo_root: Path,
+    branch: str,
+    pr_draft_path: Path,
+    title: str = "",
+    base: str = "main",
+    push: bool = True,
+) -> dict[str, Any]:
+    """
+    Push the fix branch to remote and create a GitHub PR using gh CLI.
+
+    If gh is not authenticated or not installed, returns a structured result
+    containing the exact CLI command to run manually.
+    """
+    if push:
+        log.info("Pushing branch %s to origin...", branch)
+        push_res = _git(["push", "-u", "origin", branch], repo_root, timeout=60)
+        if push_res.returncode != 0:
+            log.warning("git push failed: %s", push_res.stderr.strip())
+
+    cli_status = check_gh_cli_status()
+    pr_cmd_args = [
+        "gh", "pr", "create",
+        "--title", title or f"fix: resolve {branch}",
+        "--body-file", str(pr_draft_path),
+        "--head", branch,
+        "--base", base,
+    ]
+    pr_cmd_str = " ".join(f'"{a}"' if " " in a else a for a in pr_cmd_args)
+
+    if not cli_status["installed"]:
+        return {
+            "success": False,
+            "pr_url": "",
+            "command": pr_cmd_str,
+            "error": "GitHub CLI (gh) is not installed.",
+            "manual_instructions": f"Install gh and run: {pr_cmd_str}",
+        }
+
+    if not cli_status["authenticated"]:
+        return {
+            "success": False,
+            "pr_url": "",
+            "command": pr_cmd_str,
+            "error": "GitHub CLI is not authenticated. Run 'gh auth login' first.",
+            "manual_instructions": f"1. Run 'gh auth login'\n2. Run: {pr_cmd_str}",
+        }
+
+    try:
+        proc = subprocess.run(
+            pr_cmd_args,
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        if proc.returncode == 0:
+            pr_url = proc.stdout.strip()
+            log.info("Successfully created GitHub PR: %s", pr_url)
+            return {
+                "success": True,
+                "pr_url": pr_url,
+                "command": pr_cmd_str,
+                "error": "",
+                "manual_instructions": "",
+            }
+        err = proc.stderr.strip() or proc.stdout.strip()
+        log.error("gh pr create failed: %s", err)
+        return {
+            "success": False,
+            "pr_url": "",
+            "command": pr_cmd_str,
+            "error": f"gh pr create failed: {err}",
+            "manual_instructions": f"Execute manually: {pr_cmd_str}",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "success": False,
+            "pr_url": "",
+            "command": pr_cmd_str,
+            "error": str(exc),
+            "manual_instructions": f"Execute manually: {pr_cmd_str}",
+        }
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -327,9 +449,12 @@ def emit_pr_artifacts(
     repo_root: str = ".",
     dry_run: bool = False,
     dry_run_dir: str | None = None,
+    create_pr: bool = False,
+    base_branch: str = "main",
 ) -> dict[str, Any]:
     """
-    Create the semantic Git commit and write the PR draft Markdown file.
+    Create the semantic Git commit, write the PR draft Markdown file,
+    and optionally publish the pull request to GitHub.
 
     Parameters
     ----------
@@ -344,12 +469,16 @@ def emit_pr_artifacts(
         *dry_run_dir* instead of ``.bob/``.
     dry_run_dir:
         Output directory override used when *dry_run* is True.
+    create_pr:
+        When True and not dry-run, push branch and invoke ``gh pr create``.
+    base_branch:
+        Target base branch for the PR (default: ``main``).
 
     Returns
     -------
     dict
         ``{ "branch": str, "commit_sha": str, "pr_draft_path": str,
-            "status": "ready" | "failed" }``
+            "status": "ready" | "failed", "pr_url": str, "pr_command": str }``
     """
     repo = Path(repo_root).expanduser().resolve()
 
@@ -360,7 +489,16 @@ def emit_pr_artifacts(
         return {"branch": "", "commit_sha": "", "pr_draft_path": "", "status": "failed",
                 "error": f"Verdict file not found: {vpath}"}
     try:
-        verdict: dict[str, Any] = json.loads(vpath.read_text(encoding="utf-8"))
+        raw_obj: Any = json.loads(vpath.read_text(encoding="utf-8"))
+        if isinstance(raw_obj, list):
+            valid_items = [item for item in raw_obj if isinstance(item, dict) and item.get("status") == "VALID"]
+            verdict = valid_items[0] if valid_items else (raw_obj[0] if raw_obj and isinstance(raw_obj[0], dict) else {})
+            if "issue" in verdict and "issue_reference" not in verdict:
+                verdict["issue_reference"] = verdict["issue"]
+        elif isinstance(raw_obj, dict):
+            verdict = raw_obj
+        else:
+            verdict = {}
     except (json.JSONDecodeError, OSError) as exc:
         return {"branch": "", "commit_sha": "", "pr_draft_path": "", "status": "failed",
                 "error": f"Cannot read verdict file: {exc}"}
@@ -437,9 +575,37 @@ def emit_pr_artifacts(
     pr_out_path.write_text(pr_content, encoding="utf-8")
     log.info("PR draft written to %s", pr_out_path)
 
+    # ── Create Live GitHub PR (if requested) ──────────────────────────────────
+    pr_url = ""
+    pr_command = ""
+    pr_error = ""
+
+    if create_pr and not dry_run:
+        issue_title = verdict.get("issue_reference", "issue")
+        if issue_title.startswith("http"):
+            m = re.search(r"/issues/(\d+)$", issue_title)
+            issue_title = f"#{m.group(1)}" if m else issue_title
+        scope = _derive_scope(files_modified)
+        pr_title = f"fix({scope}): resolve {issue_title}"
+
+        pr_res = create_github_pr(
+            repo_root=repo,
+            branch=branch,
+            pr_draft_path=pr_out_path,
+            title=pr_title,
+            base=base_branch,
+            push=True,
+        )
+        pr_url = pr_res.get("pr_url", "")
+        pr_command = pr_res.get("command", "")
+        pr_error = pr_res.get("error", "")
+
     return {
         "branch": branch,
         "commit_sha": commit_sha,
         "pr_draft_path": str(pr_out_path),
         "status": "ready",
+        "pr_url": pr_url,
+        "pr_command": pr_command,
+        "pr_error": pr_error,
     }

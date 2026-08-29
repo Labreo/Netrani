@@ -65,6 +65,7 @@ ibmcloud_api_key*
 .bob/artifacts/
 .bob/patch.diff
 .bob/run_summary.json
+.bob/audit.log
 
 # Logs and runtime data
 *.log

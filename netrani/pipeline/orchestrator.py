@@ -365,6 +365,8 @@ def _stage_git_emit(
     verbose: bool,
     dry_run: bool,
     dry_run_dir: str,
+    create_pr: bool = False,
+    base_branch: str = "main",
 ) -> StageResult:
     """Stage 7: Create the Git commit and write the PR draft."""
     try:
@@ -374,6 +376,8 @@ def _stage_git_emit(
             repo_root=str(repo_root),
             dry_run=dry_run,
             dry_run_dir=dry_run_dir,
+            create_pr=create_pr,
+            base_branch=base_branch,
         )
         success = result.get("status") == "ready"
         _vlog(verbose, "stage_complete", stage="git_emit", **result)
@@ -486,6 +490,8 @@ def run_pipeline(
     dry_run: bool = False,
     offline: bool = False,
     dry_run_dir: str = ".bob/dry_run",
+    create_pr: bool = False,
+    base_branch: str = "main",
 ) -> int:
     """
     Execute the full eight-stage Netrani pipeline.
@@ -504,6 +510,10 @@ def run_pipeline(
         If True, skip network calls and use local issue fixtures.
     dry_run_dir:
         Output directory for dry-run artefacts.
+    create_pr:
+        If True and not dry-run, push branch and submit PR via gh CLI.
+    base_branch:
+        Target base branch for PR (default: main).
 
     Returns
     -------
@@ -594,6 +604,8 @@ def run_pipeline(
         verbose=verbose,
         dry_run=dry_run,
         dry_run_dir=dry_run_dir,
+        create_pr=create_pr,
+        base_branch=base_branch,
     )
     completed_stages.append(s7)
     if not s7.success:
@@ -610,6 +622,8 @@ def run_pipeline(
     pr_path = s7.data.get("pr_draft_path", "")
     commit_sha = s7.data.get("commit_sha", "")
     branch = s7.data.get("branch", fix_branch)
+    pr_url = s7.data.get("pr_url", "")
+    pr_command = s7.data.get("pr_command", "")
 
     _print_final_report(
         verdict=verdict,
@@ -619,10 +633,12 @@ def run_pipeline(
         summary_path=str(summary_path),
         test_result=s6.data,
         dry_run=dry_run,
+        pr_url=pr_url,
+        pr_command=pr_command,
     )
 
     _vlog(verbose, "pipeline_complete", run_id=run_id, verdict_status=verdict_status,
-          branch=branch, commit_sha=commit_sha)
+          branch=branch, commit_sha=commit_sha, pr_url=pr_url)
 
     return 0
 
@@ -640,6 +656,8 @@ def _print_final_report(
     summary_path: str,
     test_result: dict[str, Any],
     dry_run: bool,
+    pr_url: str = "",
+    pr_command: str = "",
 ) -> None:
     """Print the Stage 8 human-readable final status report to stdout."""
     print()
@@ -662,6 +680,11 @@ def _print_final_report(
         )),
         ("Run Summary", summary_path),
     ]
+    if pr_url:
+        rows.append(("GitHub PR", _green(pr_url)))
+    elif pr_command:
+        rows.append(("PR Command", _dim(pr_command)))
+
     if dry_run:
         rows.insert(0, ("Mode", _yellow("DRY-RUN — Git operations skipped")))
 
@@ -692,6 +715,7 @@ def _build_parser() -> argparse.ArgumentParser:
               netrani-run --issue-url https://github.com/owner/repo/issues/42 \\
                           --repo-root /path/to/repo
               netrani-run --issue-file /tmp/issue.json --repo-root . --dry-run
+              netrani-run --issue-url 42 --repo-root . --create-pr
             """
         ),
     )
@@ -715,6 +739,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Absolute or relative path to the target repository root.",
     )
     parser.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Push branch to origin and create a GitHub pull request via gh CLI.",
+    )
+    parser.add_argument(
+        "--base-branch",
+        default="main",
+        metavar="<branch>",
+        help="Base branch for the pull request (default: main).",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Skip Git operations; write artefacts to .bob/dry_run/ instead.",
@@ -734,8 +769,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point for the orchestrator."""
-    # Configure basic logging so INFO+ messages from submodules appear when
-    # --verbose is active.
     logging.basicConfig(
         level=logging.INFO,
         format="%(levelname)s  %(name)s  %(message)s",
@@ -753,8 +786,11 @@ def main(argv: list[str] | None = None) -> int:
         verbose=args.verbose,
         dry_run=args.dry_run,
         offline=args.offline,
+        create_pr=args.create_pr,
+        base_branch=args.base_branch,
     )
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

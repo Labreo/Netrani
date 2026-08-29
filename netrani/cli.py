@@ -214,26 +214,33 @@ def _resolve_repo(repo_ref: str, verbose: bool) -> str:
 # CLI definition
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# CLI definition
+# ---------------------------------------------------------------------------
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="netrani",
-        description="Netrani — General-purpose issue triage and verification tool.",
+        description="Netrani — General-purpose issue triage and verification tool built on IBM Bob 2.0.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(
             """\
             Examples:
               netrani run --repo . --issue 973
               netrani run --repo https://github.com/owner/repo --issue 973 --mode triage
-              netrani run --repo . --issue /path/to/issue.md --mode full --verbose
-              netrani run --repo . --issue 973 --dry-run
+              netrani run --repo . --issue 42 --mode full --offline
+              netrani run --repo . --issue 42 --mode full --create-pr
+              netrani triage --repo . --issue 973
+              netrani pr --repo . --create-pr
             """
         ),
     )
     sub = parser.add_subparsers(dest="command", metavar="<command>")
 
+    # ── Command: run ──────────────────────────────────────────────────────────
     run_cmd = sub.add_parser(
         "run",
-        help="Run Netrani triage/fix on a repository and issue.",
+        help="Run Netrani triage, fix, and verification pipeline on a repository and issue.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     run_cmd.add_argument(
@@ -256,9 +263,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Operation mode: triage (default), fix, or full.",
     )
     run_cmd.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Push branch to origin and create a GitHub pull request via gh CLI (VALID only).",
+    )
+    run_cmd.add_argument(
+        "--base-branch",
+        default="main",
+        metavar="<branch>",
+        help="Base branch for the pull request (default: main).",
+    )
+    run_cmd.add_argument(
         "--dry-run",
         action="store_true",
-        help="Discover and display the session context without launching an agent.",
+        help="Execute in dry-run mode without modifying git branch or remote.",
     )
     run_cmd.add_argument(
         "--offline",
@@ -269,12 +287,75 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         dest="output_json",
         action="store_true",
-        help="Emit session context as JSON to stdout instead of a human-readable table.",
+        help="Emit session context as JSON to stdout instead of human-readable table.",
     )
     run_cmd.add_argument(
         "--verbose", "-v",
         action="store_true",
-        help="Print additional details (reproduction trace, environment).",
+        help="Print additional details and structured execution logs.",
+    )
+
+    # ── Command: triage ───────────────────────────────────────────────────────
+    triage_cmd = sub.add_parser(
+        "triage",
+        help="Run three-tier verification triage on an issue without modifying code.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    triage_cmd.add_argument(
+        "--repo",
+        required=True,
+        metavar="<path-or-url>",
+        help="Target repository path.",
+    )
+    triage_cmd.add_argument(
+        "--issue",
+        required=True,
+        metavar="<id-or-file>",
+        help="Issue URL, number, or path.",
+    )
+    triage_cmd.add_argument(
+        "--title",
+        default="",
+        help="Optional explicit issue title override.",
+    )
+    triage_cmd.add_argument(
+        "--offline",
+        action="store_true",
+        help="Use local fixtures / offline issue parsing.",
+    )
+    triage_cmd.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress ASCII summary table output.",
+    )
+
+    # ── Command: pr ───────────────────────────────────────────────────────────
+    pr_cmd = sub.add_parser(
+        "pr",
+        help="Emit PR draft and optionally create GitHub pull request from current fix.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    pr_cmd.add_argument(
+        "--repo",
+        default=".",
+        metavar="<path>",
+        help="Repository root path (default: .).",
+    )
+    pr_cmd.add_argument(
+        "--create-pr",
+        action="store_true",
+        help="Push branch to origin and create a GitHub pull request via gh CLI.",
+    )
+    pr_cmd.add_argument(
+        "--base-branch",
+        default="main",
+        metavar="<branch>",
+        help="Base branch for the pull request (default: main).",
+    )
+    pr_cmd.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip Git commit/push operations; write PR draft to .bob/dry_run/.",
     )
 
     return parser
@@ -320,14 +401,96 @@ def _cmd_run(args: argparse.Namespace) -> int:
     else:
         _print_summary(ctx, verbose=verbose)
 
-    if args.dry_run:
-        print(_yellow("Dry-run complete. No agent session launched."))
-        return 0
-
     # 6. Agent workspace preparation
     _prepare_workspace(ctx, repo_path, verbose)
 
+    # 7. Execute mode
+    if args.mode in ("full", "fix"):
+        from netrani.pipeline.orchestrator import run_pipeline
+        return run_pipeline(
+            issue_ref=args.issue,
+            repo_root=repo_path,
+            verbose=verbose,
+            dry_run=args.dry_run,
+            offline=args.offline,
+            create_pr=args.create_pr,
+            base_branch=args.base_branch,
+        )
+
+    if args.mode == "triage":
+        if args.dry_run:
+            print(_yellow("Dry-run complete. No agent session launched."))
+            return 0
+        from netrani.triage import orchestrator as triage_orchestrator
+        try:
+            triage_orchestrator.run(
+                repo_path=repo_path,
+                issue_reference=issue.get("url") or issue.get("title", args.issue),
+                title=issue.get("title", ""),
+                body="\n".join(issue.get("reproduction_trace", [])),
+                suspect_symbols=issue.get("suspect_symbols", []),
+                reproduction_trace=issue.get("reproduction_trace", []),
+                issue_url=issue.get("url", ""),
+                quiet=not verbose,
+            )
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            print(_red(f"Error during triage: {exc}"), file=sys.stderr)
+            return 1
+
     return 0
+
+
+def _cmd_triage(args: argparse.Namespace) -> int:
+    repo_path = _resolve_repo(args.repo, verbose=False)
+    issue = fetch_issue(args.issue, offline=args.offline)
+    title = args.title or issue.get("title", "")
+
+    from netrani.triage import orchestrator as triage_orchestrator
+    try:
+        triage_orchestrator.run(
+            repo_path=repo_path,
+            issue_reference=issue.get("url") or title or args.issue,
+            title=title,
+            body="\n".join(issue.get("reproduction_trace", [])),
+            suspect_symbols=issue.get("suspect_symbols", []),
+            reproduction_trace=issue.get("reproduction_trace", []),
+            issue_url=issue.get("url", ""),
+            quiet=args.quiet,
+        )
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        print(_red(f"Error during triage: {exc}"), file=sys.stderr)
+        return 1
+
+
+def _cmd_pr(args: argparse.Namespace) -> int:
+    from netrani import config
+    from netrani.pipeline.git_emitter import emit_pr_artifacts
+
+    repo = Path(args.repo).expanduser().resolve()
+    vpath = str(config.verdict_path(repo))
+    alog = str(config.audit_log_path(repo))
+
+    res = emit_pr_artifacts(
+        verdict_path=vpath,
+        audit_log_path=alog,
+        repo_root=str(repo),
+        dry_run=args.dry_run,
+        create_pr=args.create_pr,
+        base_branch=args.base_branch,
+    )
+
+    if res.get("status") == "ready":
+        print(_green(f"✓ PR draft generated: {res['pr_draft_path']}"))
+        if res.get("pr_url"):
+            print(_green(f"✓ GitHub PR opened: {res['pr_url']}"))
+        elif res.get("pr_command"):
+            print(_cyan(f"→ To submit PR manually, run:\n  {res['pr_command']}"))
+        return 0
+    else:
+        print(_red(f"✗ Failed to generate PR artifacts: {res.get('error')}"))
+        return 1
 
 
 def _prepare_workspace(ctx: dict[str, Any], repo_path: str, verbose: bool) -> None:
@@ -356,6 +519,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         return _cmd_run(args)
+    if args.command == "triage":
+        return _cmd_triage(args)
+    if args.command == "pr":
+        return _cmd_pr(args)
 
     parser.print_help()
     return 0
