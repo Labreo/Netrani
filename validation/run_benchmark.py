@@ -255,6 +255,17 @@ def write_results(results: list[dict], out_path: Path) -> None:
                 "benchmark_version": "1.0",
                 "repo": "open-telemetry/opentelemetry-go-compile-instrumentation",
                 "reference_issue": "#973",
+                # ── Architecture transparency ──────────────────────────────────
+                # This benchmark runs the Netrani Python heuristic engine
+                # (netrani/subagents/ + netrani/triage/) directly in-process.
+                # Zero IBM Bob Shell or LLM calls are made during this run.
+                # The .bob/ directory provides the native IBM Bob 2.0 agent
+                # configuration (custom_modes, skills, hooks) for interactive
+                # use in Bob IDE — it is NOT invoked by this benchmark runner.
+                "live_bob_session": False,
+                "engine": "Netrani Python heuristic engine v0.1.0 (offline mode)",
+                "bob_config": ".bob/ directory (custom_modes.yaml, skills/triage/SKILL.md, hooks/)",
+                # ──────────────────────────────────────────────────────────────
                 "total": len(results),
                 "correct": sum(1 for r in results if r["match"]),
                 "accuracy": sum(1 for r in results if r["match"]) / len(results),

@@ -132,7 +132,7 @@ def _synthesise(
       1. OBSOLETE  — history has an explicit fix-commit link AND confidence >= 0.80.
                      Weaker OBSOLETE (< 0.80) always falls through to Tier 2 synthesis.
       2. DUPLICATE — history confident (conf >= 0.65) and static does not confirm VALID
-                     with higher confidence.
+                     with higher confidence (conf >= 0.70).
       3. FALSE_POSITIVE — static is confident (conf >= 0.75) and history inconclusive
                           or non-VALID.
       4. VALID     — static confirms reachable, or ambiguous fallback.
@@ -158,9 +158,9 @@ def _synthesise(
             history.confidence,
         )
 
-    # Rule 2: confident DUPLICATE — but defer to static if static is strongly VALID
+    # Rule 2: confident DUPLICATE from ongoing work or tracked issue
     if history.verdict == "DUPLICATE" and history.confidence >= 0.65:
-        if static.verdict != "VALID" or static.confidence < 0.70:
+        if static.verdict != "VALID" or static.confidence <= 0.75:
             return (
                 "DUPLICATE",
                 history.citation,
@@ -199,8 +199,8 @@ def _synthesise(
             max(static.confidence, 0.55),
         )
 
-    # Rule 5: weak OBSOLETE or DUPLICATE (Tier 1 < 0.80) with no Tier 2 conclusion
-    if history.verdict in ("OBSOLETE", "DUPLICATE"):
+    # Rule 5: confident DUPLICATE fallback
+    if history.verdict == "DUPLICATE" and history.confidence >= 0.65:
         return (
             history.verdict,
             history.citation,
@@ -312,7 +312,7 @@ def run(
             title,
             body,
             suspect_symbols,
-            issue_url,
+            issue_url or issue_reference,
         )
         fut_static = executor.submit(
             static_validator.run,
