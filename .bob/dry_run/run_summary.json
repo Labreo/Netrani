@@ -1,0 +1,96 @@
+{
+  "run_id": "906c3edd-ee7d-49fa-8aad-119ffe423636",
+  "timestamp_utc": "2026-08-29T00:56:36.283529+00:00",
+  "verdict_status": "OBSOLETE",
+  "dry_run": true,
+  "stages": [
+    {
+      "stage": "issue_ingestion",
+      "success": true,
+      "data": {
+        "issue": {
+          "title": "Example: panic in database connection pool",
+          "body": "## Description\n\nSince upgrading to v1.3.2 the server panics with `ConnectionPool.Acquire` throwing a nil pointer.\n\n## Steps to Reproduce\n\n1. Start the server with `--config config/dev.yaml`\n2. Send 50 concurrent requests to `/api/health`\n3. Observe panic in stderr\n\n## Expected Behavior\n\nRequests should return HTTP 200.\n\n## Environment\n\n- OS: Ubuntu 22.04\n- Go version: 1.21.0\n- Version: v1.3.2\n",
+          "author": "test-user",
+          "labels": [
+            "bug",
+            "p1"
+          ],
+          "url": "https://github.com/example/repo/issues/42",
+          "source": "local_file",
+          "suspect_symbols": [
+            "ConnectionPool.Acquire",
+            "Description",
+            "Since",
+            "Steps",
+            "Reproduce",
+            "Start",
+            "Send",
+            "Observe",
+            "Expected",
+            "Behavior",
+            "Requests",
+            "HTTP",
+            "Environment",
+            "Ubuntu",
+            "Version"
+          ],
+          "reproduction_trace": [
+            "Start the server with `--config config/dev.yaml`",
+            "Send 50 concurrent requests to `/api/health`",
+            "Observe panic in stderr"
+          ],
+          "reported_version": "1.21.0",
+          "environment": {
+            "os": "Ubuntu 22.04",
+            "go_version": "1.21.0",
+            "version": "v1.3.2"
+          }
+        }
+      },
+      "error": ""
+    },
+    {
+      "stage": "doc_discovery",
+      "success": true,
+      "data": {
+        "profile": {
+          "test_commands": [
+            "pytest"
+          ],
+          "lint_commands": [
+            "ruff check ."
+          ],
+          "contribution_guidelines": "",
+          "detected_languages": [
+            "Python"
+          ],
+          "issue_template_schema": {
+            "fields": [],
+            "raw_templates": {}
+          }
+        },
+        "profile_path": "/Users/sanjaywaradkar/Netrani/.bob/repo_profile.json"
+      },
+      "error": ""
+    },
+    {
+      "stage": "triage",
+      "success": true,
+      "data": {
+        "verdict": {
+          "status": "OBSOLETE",
+          "citation": "f9bc4e25aad46c309e50a5c43e8d76a436a7b5d7",
+          "rationale": "Commit f9bc4e25aad4 on branch 'main' modifies the same code paths referenced in this issue. The defect appears to have been addressed in that commit. Diff summary: commit f9bc4e25aad46c309e50a5c43e8d76a436a7b5d7\nAuthor: Labreo <74888611+Labreo@users.noreply.github.com>\nDate:   Fri Aug 28 21:27:42 2026 +0530\n\n    Add Netrani core pipeline, subagents, tests, and b",
+          "confidence": 0.85,
+          "timestamp": "2026-08-29T00:56:36Z",
+          "target_repo": "Labreo/Netrani",
+          "issue_reference": "https://github.com/example/repo/issues/42"
+        },
+        "verdict_path": "/Users/sanjaywaradkar/Netrani/.bob/verdict.json"
+      },
+      "error": ""
+    }
+  ],
+  "overall_success": true
+}

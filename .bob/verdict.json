@@ -1,0 +1,9 @@
+{
+  "status": "OBSOLETE",
+  "citation": "f9bc4e25aad46c309e50a5c43e8d76a436a7b5d7",
+  "rationale": "Commit f9bc4e25aad4 on branch 'main' modifies the same code paths referenced in this issue. The defect appears to have been addressed in that commit. Diff summary: commit f9bc4e25aad46c309e50a5c43e8d76a436a7b5d7\nAuthor: Labreo <74888611+Labreo@users.noreply.github.com>\nDate:   Fri Aug 28 21:27:42 2026 +0530\n\n    Add Netrani core pipeline, subagents, tests, and b",
+  "confidence": 0.85,
+  "timestamp": "2026-08-29T00:56:36Z",
+  "target_repo": "Labreo/Netrani",
+  "issue_reference": "https://github.com/example/repo/issues/42"
+}

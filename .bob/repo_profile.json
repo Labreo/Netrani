@@ -1,0 +1,16 @@
+{
+  "test_commands": [
+    "pytest"
+  ],
+  "lint_commands": [
+    "ruff check ."
+  ],
+  "contribution_guidelines": "",
+  "detected_languages": [
+    "Python"
+  ],
+  "issue_template_schema": {
+    "fields": [],
+    "raw_templates": {}
+  }
+}
