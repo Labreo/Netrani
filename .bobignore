@@ -43,6 +43,13 @@ ibmcloud_api_key*
 .bob/*.key
 .bob/*.token
 
+# Bob Ephemeral Runtime Outputs
+.bob/benchmark_verdicts/
+.bob/dry_run/
+.bob/artifacts/
+.bob/patch.diff
+.bob/run_summary.json
+
 # OS & Temp Files
 .DS_Store
 Thumbs.db

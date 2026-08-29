@@ -129,14 +129,28 @@ def _synthesise(
     Merge findings from both subagents into (status, citation, rationale, confidence).
 
     Priority rules (highest to lowest):
-      1. OBSOLETE  — history is certain (conf >= 0.80) → history wins unconditionally.
-      2. DUPLICATE — history confident (conf >= 0.65)  → history wins if static ≠ VALID
-                     or static confidence < 0.70.
-      3. FALSE_POSITIVE — static is confident (conf >= 0.75) and history inconclusive.
-      4. VALID     — fallback / ambiguous cases.
+      1. OBSOLETE  — history has an explicit fix-commit link AND confidence >= 0.80.
+                     Weaker OBSOLETE (< 0.80) always falls through to Tier 2 synthesis.
+      2. DUPLICATE — history confident (conf >= 0.65) and static does not confirm VALID
+                     with higher confidence.
+      3. FALSE_POSITIVE — static is confident (conf >= 0.75) and history inconclusive
+                          or non-VALID.
+      4. VALID     — static confirms reachable, or ambiguous fallback.
+
+    If Tier 1 is inconclusive (confidence < 0.80), Tier 2 evidence always
+    participates in the synthesis.
     """
-    # Rule 1: strong OBSOLETE from history
-    if history.verdict == "OBSOLETE" and history.confidence >= 0.80:
+    history_is_strong_obsolete = (
+        history.verdict == "OBSOLETE"
+        and history.confidence >= 0.80
+        # Extra guard: citation must look like a real commit SHA or PR reference,
+        # not a fallback string from the inconclusive path.
+        and bool(history.citation)
+        and not history.citation.startswith("No specific")
+    )
+
+    # Rule 1: strong OBSOLETE — only accept when history has a direct commit/fix link
+    if history_is_strong_obsolete:
         return (
             "OBSOLETE",
             history.citation,
@@ -144,9 +158,8 @@ def _synthesise(
             history.confidence,
         )
 
-    # Rule 2: confident DUPLICATE
+    # Rule 2: confident DUPLICATE — but defer to static if static is strongly VALID
     if history.verdict == "DUPLICATE" and history.confidence >= 0.65:
-        # Only override if static validator didn't independently confirm VALID
         if static.verdict != "VALID" or static.confidence < 0.70:
             return (
                 "DUPLICATE",
@@ -156,11 +169,18 @@ def _synthesise(
             )
 
     # Rule 3: confident FALSE_POSITIVE from static
+    # (reached whenever Tier 1 is inconclusive OR weak OBSOLETE < 0.80)
     if static.verdict == "FALSE_POSITIVE" and static.confidence >= 0.75:
+        combined_rationale = static.rationale
+        if history.rationale:
+            combined_rationale = (
+                f"Static analysis: {static.rationale}  "
+                f"History check: {history.rationale}"
+            )
         return (
             "FALSE_POSITIVE",
             static.citation,
-            static.rationale,
+            combined_rationale,
             static.confidence,
         )
 
@@ -179,7 +199,7 @@ def _synthesise(
             max(static.confidence, 0.55),
         )
 
-    # Rule 5: any weaker OBSOLETE or DUPLICATE
+    # Rule 5: weak OBSOLETE or DUPLICATE (Tier 1 < 0.80) with no Tier 2 conclusion
     if history.verdict in ("OBSOLETE", "DUPLICATE"):
         return (
             history.verdict,

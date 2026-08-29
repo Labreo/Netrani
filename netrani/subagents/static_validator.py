@@ -213,10 +213,19 @@ def _analyse_python_function(
 # ---------------------------------------------------------------------------
 
 _GUARD_PATTERNS = [
-    # Go nil guard
-    (r"if\s+\w+\s*==\s*nil\b", "nil-guard"),
+    # Go nil guard: if x == nil / if x != nil
+    (r"if\s+\w[\w.]*\s*==\s*nil\b", "nil-guard"),
+    (r"if\s+\w[\w.]*\s*!=\s*nil\b", "nil-guard"),
     # Go err check
     (r"if\s+err\s*!=\s*nil\b", "error-guard"),
+    # Go type assertion with ok idiom: x, ok := y.(T)
+    (r"\w+\s*,\s*ok\s*:=\s*\w[\w.]*\.\([^)]+\)", "type-assertion-guard"),
+    # Go boolean flag / env var check
+    (r"if\s+\w[\w.]*\s*\{", "bool-flag-guard"),
+    # Go EqualFold / strings.EqualFold for env checks (e.g. OTEL_SDK_DISABLED)
+    (r"strings\.EqualFold\s*\(", "strings-equalfold-guard"),
+    # Go early return
+    (r"\breturn\b", "early-return"),
     # Rust unwrap-or / if let
     (r"\.unwrap_or\b|if\s+let\s+Some\b|if\s+let\s+Ok\b", "rust-option-guard"),
     # TypeScript/JS null check
@@ -243,6 +252,67 @@ def _count_guards_in_range(
     return hits
 
 
+def _analyse_go_function(
+    text: str,
+    symbol: str,
+    path: Path,
+    occurrences: list[tuple[int, str]],
+) -> tuple[str | None, str, float, list[str]]:
+    """
+    Go-specific analysis.  Scans the 40-line window around each occurrence of
+    *symbol* for:
+      - nil guards (``if x == nil``, ``if x != nil``)
+      - type assertions with ok idiom (``x, ok := y.(T)``)
+      - boolean flag checks (``if OTEL_SDK_DISABLED``, ``strings.EqualFold``)
+      - early returns
+
+    If protective guards cover the failure path, emits FALSE_POSITIVE.
+    Confidence is computed dynamically: ``0.70 + (0.05 * guard_count)`` capped
+    at ``0.95``.
+    """
+    if not occurrences:
+        return None, "", 0.0, []
+
+    lines = text.splitlines()
+    evidence: list[str] = []
+    guard_count = 0
+
+    # Patterns that specifically prevent the reported failure (nil deref, type
+    # mismatch, disabled-flag panic) rather than general early returns.
+    _PROTECTIVE_PATTERNS = [
+        re.compile(r"if\s+\w[\w.]*\s*==\s*nil\b"),           # nil guard
+        re.compile(r"if\s+\w[\w.]*\s*!=\s*nil\b"),           # non-nil check
+        re.compile(r"\w+\s*,\s*ok\s*:=\s*\w[\w.]*\.\([^)]+\)"),  # type assertion ok
+        re.compile(r"strings\.EqualFold\s*\("),               # env-var case-insensitive check
+        re.compile(r"\bif\b.*\bDisabled\b|\bif\b.*\bSdkDisabled\b", re.IGNORECASE),
+    ]
+
+    for lineno, _ in occurrences[:5]:  # analyse at most 5 call sites
+        # Widen the window for Go: function definitions can be far from the call site
+        window_start = max(0, lineno - 20)
+        window_end = min(len(lines), lineno + 20)
+        for i in range(window_start, window_end):
+            line = lines[i]
+            for pat in _PROTECTIVE_PATTERNS:
+                if pat.search(line):
+                    guard_count += 1
+                    evidence.append(f"{path}:{i + 1} [go-guard: {line.strip()[:80]}]")
+            # Also count generic guard patterns (err checks, early returns)
+            for pat, label in _GUARD_PATTERNS:
+                if re.search(pat, line) and f"{path}:{i + 1}" not in " ".join(evidence):
+                    evidence.append(f"{path}:{i + 1} [{label}]")
+
+    first_lineno = occurrences[0][0]
+    citation = f"{path}:{first_lineno}"
+
+    # Dynamic confidence: 0.70 base + 0.05 per guard, capped at 0.95
+    confidence = min(0.95, 0.70 + 0.05 * guard_count)
+
+    if guard_count >= 2:
+        return "FALSE_POSITIVE", citation, confidence, evidence
+    return "VALID", citation, confidence, evidence
+
+
 def _analyse_generic_function(
     text: str,
     symbol: str,
@@ -252,6 +322,9 @@ def _analyse_generic_function(
     """
     Generic analysis for non-Python files.  Looks at the 30-line window
     around each occurrence of *symbol* for guard patterns.
+
+    Confidence is computed dynamically: ``0.70 + (0.05 * guard_count)``
+    capped at ``0.95``.
     """
     if not occurrences:
         return None, "", 0.0, []
@@ -271,14 +344,12 @@ def _analyse_generic_function(
     first_lineno = occurrences[0][0]
     citation = f"{path}:{first_lineno}"
 
+    # Dynamic confidence
+    confidence = min(0.95, 0.70 + 0.05 * total_guards)
+
     if total_guards >= 2:
-        return (
-            "FALSE_POSITIVE",
-            citation,
-            0.75,
-            evidence,
-        )
-    return "VALID", citation, 0.72, evidence
+        return "FALSE_POSITIVE", citation, confidence, evidence
+    return "VALID", citation, confidence, evidence
 
 
 # ---------------------------------------------------------------------------
@@ -381,9 +452,11 @@ def run(
             if not occurrences:
                 continue
 
-            # Python deep analysis
+            # Language-specific deep analysis
             if fpath.suffix == ".py":
                 v, cit, conf, ev = _analyse_python_function(text, base_sym, fpath)
+            elif fpath.suffix == ".go":
+                v, cit, conf, ev = _analyse_go_function(text, base_sym, fpath, occurrences)
             else:
                 v, cit, conf, ev = _analyse_generic_function(text, base_sym, fpath, occurrences)
 
