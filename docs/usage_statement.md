@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Netrani Logo" width="160" />
+</p>
+
 # Netrani: Usage Statement & Bob 2.0 Best Practices
 
 **Participant & Affiliation:** Kanak Waradkar — Goa College of Engineering (GEC Goa)  

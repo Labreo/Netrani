@@ -100,6 +100,9 @@ env/
 
 # Temporary & Scratch Files
 temp/
+*PRIVATE*
+*.private.md
+*private*
 
 # Project Planning & Demo Notes
 Netrani_Demo_Script.md

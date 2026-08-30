@@ -1,0 +1,17 @@
+{
+  "task_id": "7bcfc3b6eda74f96ab2636eef8e9088d",
+  "description": "History mining for https://github.com/example/repo/issues/42",
+  "mode": "History Miner",
+  "workspace": "Netrani",
+  "context_length": "18.5k / 270.0k",
+  "tokens": {
+    "input": 2050,
+    "output": 670,
+    "cached": 15800
+  },
+  "bobcoins_cost": 0.0095,
+  "duration_seconds": 0.15,
+  "tools_invoked": [
+    "execute_command"
+  ]
+}

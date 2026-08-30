@@ -226,12 +226,11 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=textwrap.dedent(
             """\
             Examples:
-              netrani run --repo . --issue 973
-              netrani run --repo https://github.com/owner/repo --issue 973 --mode triage
-              netrani run --repo . --issue 42 --mode full --offline
-              netrani run --repo . --issue 42 --mode full --create-pr
-              netrani triage --repo . --issue 973
-              netrani pr --repo . --create-pr
+              netrani run --repo /path/to/repo --issue <issue-id> --mode triage
+              netrani run --repo . --issue 42 --mode triage --offline
+              netrani run --repo . --issue 42 --mode full --dry-run
+              netrani triage --repo . --issue 42 --offline
+              netrani pr --repo . --dry-run
             """
         ),
     )

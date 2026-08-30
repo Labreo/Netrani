@@ -1,26 +1,40 @@
-# Netrani
+<p align="center">
+  <img src="docs/assets/logo.png" alt="Netrani Logo" width="220" />
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python: 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
-[![Tests: 86 Passing](https://img.shields.io/badge/Tests-86%20Passing-brightgreen.svg)](tests/)
-[![IBM Bob 2.0](https://img.shields.io/badge/IBM%20Bob-2.0%20Native-6f42c1.svg)](.bob/)
+<h1 align="center">Netrani</h1>
+
+<p align="center">
+  <strong>Autonomous Upstream Issue Verification & Triage Agent</strong><br>
+  <em>Built with Purpose on IBM Bob 2.0</em>
+</p>
+
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.11%2B-blue.svg" alt="Python: 3.11+"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/Tests-86%20Passing-brightgreen.svg" alt="Tests: 86 Passing"></a>
+  <a href=".bob/"><img src="https://img.shields.io/badge/IBM%20Bob-2.0%20Native-6f42c1.svg" alt="IBM Bob 2.0"></a>
+</p>
 
 **Netrani** is a general-purpose issue triage and verification tool built on **IBM Bob 2.0**. It inverts the standard generative AI coding lifecycle by establishing an upstream verification gate: **decide whether a bug report is genuine before authoring any code**.
 
-Validated deeply against [`open-telemetry/opentelemetry-go-compile-instrumentation`](https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation) in response to maintainer [Issue #973](https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation/issues/973) (*"Our issue and PR intake does not scale"*).
+Validated against a real-world enterprise Go compile-time instrumentation repository experiencing intake scaling challenges (*"Our issue and PR intake does not scale"*).
 
 ---
 
 ## Quick Invocations
 
 ```bash
-# 1. Triage an incoming issue against a local or remote repository
-netrani run --repo /path/to/repo --issue 973 --mode triage
+# 1. Triage an incoming issue (read-only verification)
+netrani run --repo /path/to/repo --issue <issue-id-or-file> --mode triage
 
-# 2. Run full end-to-end pipeline (Triage → Fix → Verify → Submit PR) on a verified issue
-netrani run --repo /path/to/repo --issue 42 --mode full --create-pr
+# 2. Run offline triage on a local sample issue
+netrani run --repo . --issue 42 --mode triage --offline
 
-# 3. Run the 18-issue ground-truth validation benchmark
+# 3. Run full end-to-end pipeline (Triage → Gated Fix → Test → PR Draft)
+netrani run --repo . --issue 42 --mode full --dry-run
+
+# 4. Run the 18-issue curated ground-truth validation benchmark (strictly local/read-only)
 python validation/run_benchmark.py --repo-root /path/to/repo
 ```
 
@@ -84,19 +98,19 @@ Netrani optimizes intake economics through a two-tier hybrid model:
 2. **Tier 2 (IBM Bob 2.0 Agent Mode Escalation):**
    - **Cost:** **~0.45 Bobcoins / issue** | **Avg Latency:** **~13.82 s**
    - Escalates ambiguous boundary cases (Go `defer` control flow, cross-package interface satisfaction, multi-file commit diffs) to specialized Bob custom modes.
-   - Resolves **100% (6/6)** of escalated hard cases.
+   - Resolves **83.3% (5/6)** of escalated hard cases.
 
 ---
 
 ## Benchmark Results (18 Ground-Truth Issues)
 
-Evaluated against the 18 curated ground-truth issues from `open-telemetry/opentelemetry-go-compile-instrumentation` ([`validation/dataset/issues.json`](validation/dataset/issues.json)):
+Evaluated against the 18 curated ground-truth issues from a real-world Go compile-time instrumentation project ([`validation/dataset/issues.json`](validation/dataset/issues.json)):
 
 | Tier | Scope | Accuracy | Avg Latency | Total Bobcoins | Cost / Issue |
 |---|---|---|---|---|---|
 | **Tier 1 (Deterministic Engine)** | All 18 issues | **9/18 (50.0%)** | 6.44 s | **0 Bobcoins ($0.00)** | $0.00 |
-| **Tier 2 (Bob Escalation on 6 Hard Cases)** | 6 Misses (IDs 4, 5, 6, 7, 12, 15) | **6/6 resolved (100%)** | 13.82 s | **2.70 Bobcoins** | 0.45 |
-| **Combined Hybrid Performance** | **18 issues** | **15/18 (83.3%)** | **8.90 s (weighted)** | **2.70 Bobcoins total** | **0.15** |
+| **Tier 2 (Bob Escalation on 6 Hard Cases)** | 6 Misses (IDs 4, 5, 6, 7, 12, 15) | **5/6 resolved (83.3%)** | 13.82 s | **2.70 Bobcoins** | 0.45 |
+| **Combined Hybrid Performance** | **18 issues** | **14/18 (77.8%)** | **8.90 s (weighted)** | **2.70 Bobcoins total** | **0.15** |
 
 *Budget Hygiene:* Triaging the entire 18-issue benchmark consumed only **2.70 of 40.00 Bobcoins (6.75%)**, leaving **93.25%** of the budget intact.
 
@@ -130,17 +144,17 @@ netrani <command> [options]
 #   pr      Generate PR draft and submit to GitHub
 
 # Examples:
-# 1. Triage with IBM Bob 2.0 Agent Mode & custom subagents
-netrani triage --repo . --issue 973 --use-bob
+# 1. Offline heuristic intake (Tier 1 zero-cost filtration)
+netrani triage --repo . --issue 42 --offline
 
-# 2. Run full end-to-end pipeline with Bob Agent Mode and PR emission
-netrani run --repo . --issue 42 --mode full --use-bob --create-pr
+# 2. Triage with IBM Bob 2.0 Agent Mode & custom subagents
+netrani triage --repo . --issue 42 --use-bob
 
-# 3. Offline heuristic intake (Tier 1 zero-cost filtration)
-netrani triage --repo . --issue 973 --offline
+# 3. Run full end-to-end pipeline in dry-run mode (Triage → Fix → Verify → PR Draft)
+netrani run --repo . --issue 42 --mode full --use-bob --dry-run
 
 # 4. Generate PR draft from verified fix
-netrani pr --repo . --create-pr --base-branch main
+netrani pr --repo . --base-branch main --dry-run
 ```
 
 ---
@@ -163,6 +177,8 @@ Netrani/
 │   ├── pipeline/                            # git_emitter & orchestration
 │   ├── parser/                              # doc_parser (CONTRIBUTING.md, manifests)
 │   ├── issue/                               # issue fetcher & schema
+│   ├── bob/                                 # IBM Bob 2.0 Agent Mode integration (agent.py)
+│   ├── config.py                            # Central configuration & runtime paths
 │   └── cli.py                               # CLI entrypoint
 │
 ├── docs/                                    # Official contest documentation
@@ -173,7 +189,8 @@ Netrani/
 │   └── README.md                            # 3-minute timed demo script & video specifications
 │
 ├── bob_sessions/                            # Mandatory IBM Bob IDE session consumption summaries
-│   └── README.md                            # Bob session screenshot specifications & inventory
+│   ├── README.md                            # Bob session screenshot inventory & budget summary
+│   └── kanak_waradkar_task01..09_*.png      # 9 session consumption screenshots
 │
 ├── validation/                              # Benchmark validation artifacts
 │   ├── dataset/issues.json                  # 18-issue ground-truth dataset
@@ -181,12 +198,13 @@ Netrani/
 │   ├── benchmark_results.json               # Machine-readable evaluation output
 │   └── run_benchmark.py                     # Benchmark runner
 │
-├── tests/                                   # Test suite (79 passing unit tests)
+├── tests/                                   # Test suite (86 passing unit tests)
+│   ├── test_bob_agent.py
 │   ├── test_execution_gate.py
 │   ├── test_gate_fix.py
 │   ├── test_history_miner.py
-│   ├── test_static_validator.py
-│   └── test_pr_mechanics.py
+│   ├── test_pr_mechanics.py
+│   └── test_static_validator.py
 │
 ├── README.md                                # Top-level project documentation
 ├── LICENSE                                  # MIT License
@@ -195,11 +213,11 @@ Netrani/
 
 ---
 
-## Disclosures & Compliance
+## Safety, Privacy & Disclosures
 
+- **Read-Only Local Evaluation:** Benchmark evaluation (18 issues) and automated testing execute **100% locally and read-only**. Netrani does **NOT** post or submit unsolicited pull requests or comments to real upstream repositories.
+- **Controlled PR Emission:** The `--create-pr` flag operates exclusively on user-owned repository forks where explicitly configured; default execution runs in `--dry-run` or local branch mode.
 - **Solo Participant:** Kanak Waradkar (GitHub: [`Labreo`](https://github.com/Labreo))
 - **Affiliation:** Goa College of Engineering (GEC Goa)
 - **Event:** IBM TechXchange 2026 Pre-conference Dev Day Hackathon — *"Build with purpose using IBM Bob 2.0"*
-- **Data Sources:** Public GitHub issues from [`open-telemetry/opentelemetry-go-compile-instrumentation`](https://github.com/open-telemetry/opentelemetry-go-compile-instrumentation)
-- **OpenTelemetry GenAI Policy Compliance:** Benchmark validation (18 issues) is evaluated strictly read-only. Exactly **one** real, human-reviewed, disclosed pull request carrying `Assisted-by: IBM Bob 2.0 / Netrani` is submitted for the demoed Valid case; all other batch runs generate local branch/diff artifacts only.
 - **License:** MIT License (see [LICENSE](LICENSE)).

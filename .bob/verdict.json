@@ -3,7 +3,7 @@
   "citation": "netrani/fixtures/42.json:1",
   "rationale": "IBM Bob 2.0 Static Validator confirmed reachable execution path in netrani/fixtures/42.json:1 without protective guard. [Verified via IBM Bob 2.0 Agent Mode]",
   "confidence": 0.8,
-  "timestamp": "2026-08-29T10:17:06Z",
+  "timestamp": "2026-08-30T02:15:11Z",
   "target_repo": "Labreo/Netrani",
   "issue_reference": "https://github.com/example/repo/issues/42"
 }

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Netrani Logo" width="160" />
+</p>
+
 # Netrani: Problem and Solution Statement
 
 **Author & Affiliation:** Kanak Waradkar — Goa College of Engineering (GEC Goa)  
@@ -20,6 +24,6 @@ Every verdict returns one of four cited states: `VALID`, `DUPLICATE`, `OBSOLETE`
 
 ### Results & Scaling Story
 Benchmarked against 18 curated ground-truth issues from the OpenTelemetry Go compile-instrumentation repository:
-- **Accuracy:** Tier 1 heuristic baseline (50.0%) escalates to **83.3% overall hybrid accuracy** (15/18 resolved), resolving 100% (6/6) of escalated hard cases.
+- **Accuracy:** Tier 1 heuristic baseline (50.0%) escalates to **77.8% overall hybrid accuracy** (14/18 resolved), resolving 83.3% (5/6) of escalated hard cases.
 - **Budget Hygiene:** Triaging the entire 18-issue suite consumed only **2.70 out of 40.00 Bobcoins (6.75%)**, amortizing to **0.15 Bobcoins/issue**.
 - **Generality & Scaling:** Netrani discovers repository properties dynamically at runtime—reading `CONTRIBUTING.md`, manifests, issue templates, and test commands (`pytest`, `go test`, `make`) without project-specific hardcoding. The validation evidence is scoped deeply to one real repository to demonstrate empirical rigor, while the architecture generalizes across any Git project. Post-hackathon, this model naturally extends to validating stale-base pull requests against concurrent commits.

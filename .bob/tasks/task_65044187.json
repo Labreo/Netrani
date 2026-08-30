@@ -1,0 +1,24 @@
+{
+  "task_id": "65044187a2d1454d9abbcaa1eb4dce39",
+  "description": "Static validation for https://github.com/example/repo/issues/42",
+  "mode": "Static Validator",
+  "workspace": "Netrani",
+  "context_length": "34.4k / 270.0k",
+  "tokens": {
+    "input": 8000,
+    "output": 2210,
+    "cached": 24200
+  },
+  "bobcoins_cost": 0.0337,
+  "duration_seconds": 0.14,
+  "tools_invoked": [
+    "grep_search",
+    "grep_search",
+    "grep_search",
+    "grep_search",
+    "grep_search",
+    "read_file",
+    "read_file",
+    "read_file"
+  ]
+}
