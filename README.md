@@ -14,11 +14,19 @@
   <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.11%2B-blue.svg" alt="Python: 3.11+"></a>
   <a href="tests/"><img src="https://img.shields.io/badge/Tests-86%20Passing-brightgreen.svg" alt="Tests: 86 Passing"></a>
   <a href=".bob/"><img src="https://img.shields.io/badge/IBM%20Bob-2.0%20Native-6f42c1.svg" alt="IBM Bob 2.0"></a>
+  <a href="https://youtu.be/UVKck4-rLjc"><img src="https://img.shields.io/badge/YouTube-3min%20Demo%20Video-red.svg" alt="YouTube Demo"></a>
 </p>
 
 **Netrani** is a general-purpose issue triage and verification tool built on **IBM Bob 2.0**. It inverts the standard generative AI coding lifecycle by establishing an upstream verification gate: **decide whether a bug report is genuine before authoring any code**.
 
 Validated against a real-world enterprise Go compile-time instrumentation repository experiencing intake scaling challenges (*"Our issue and PR intake does not scale"*).
+
+---
+
+## Demo Video
+
+Watch the 3-minute architecture walkthrough and live IBM Bob 2.0 triage demonstration:
+- **YouTube Video URL:** [https://youtu.be/UVKck4-rLjc](https://youtu.be/UVKck4-rLjc)
 
 ---
 
