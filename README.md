@@ -31,7 +31,7 @@ netrani run --repo /path/to/repo --issue <issue-id-or-file> --mode triage
 # 2. Run offline triage on a local sample issue
 netrani run --repo . --issue 42 --mode triage --offline
 
-# 3. Run full end-to-end pipeline (Triage → Gated Fix → Test → PR Draft)
+# 3. Run full end-to-end pipeline (Triage -> Gated Fix -> Test -> PR Draft)
 netrani run --repo . --issue 42 --mode full --dry-run
 
 # 4. Run the 18-issue curated ground-truth validation benchmark (strictly local/read-only)
@@ -66,41 +66,41 @@ flowchart TD
     classDef nonvalid fill:#3b0764,stroke:#ec4899,stroke-width:2px,color:#fdf2f8;
     classDef action fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#eff6ff;
 
-    ISSUE["📥 <b>Incoming Issue Report</b><br/><i>Title, Body, Stack Trace, Environment</i>"]:::input --> TIER1
+    ISSUE["<b>Incoming Issue Report</b><br/><i>Title, Body, Stack Trace, Environment</i>"]:::input --> TIER1
 
-    subgraph S_TIER1 ["⚡ Tier 1: Deterministic Intake Engine (0 Bobcoins / $0.00)"]
-        TIER1["<b>Deterministic Static Analyzer</b><br/>• AST Guard Trees & Symbol Extraction<br/>• git log -S/-G Archaeology<br/>• Exact Duplicate Matcher"]:::tier1
-        CONF{"Confidence ≥ 0.85?"}:::tier1
+    subgraph S_TIER1 ["Tier 1: Deterministic Intake Engine (0 Bobcoins / $0.00)"]
+        TIER1["<b>Deterministic Static Analyzer</b><br/>- AST Guard Trees & Symbol Extraction<br/>- git log -S/-G Archaeology<br/>- Exact Duplicate Matcher"]:::tier1
+        CONF{"Confidence >= 0.85?"}:::tier1
         TIER1 --> CONF
     end
 
-    subgraph S_TIER2 ["🤖 Tier 2: IBM Bob 2.0 Agent Mode Escalation (~0.45 Bobcoins / issue)"]
+    subgraph S_TIER2 ["Tier 2: IBM Bob 2.0 Agent Mode Escalation (~0.45 Bobcoins / issue)"]
         BOB_ORCH["<b>IBM Bob 2.0 Agent Mode</b><br/><i>(Guided by .bob/skills/triage/SKILL.md)</i>"]:::tier2
         HM["<b>history-miner</b><br/>Multi-file commit diffs & git graph analysis"]:::tier2
         SV["<b>static-validator</b><br/>Go AST control-flow & interface satisfaction"]:::tier2
         BOB_ORCH --> HM & SV
     end
 
-    CONF -- "Yes (66.7% Volume)" --> FAST_VERDICT["⚡ Direct Deterministic Verdict"]:::tier1
+    CONF -- "Yes (66.7% Volume)" --> FAST_VERDICT["Direct Deterministic Verdict"]:::tier1
     CONF -- "No (Boundary Cases)" --> BOB_ORCH
 
-    HM & SV --> HYBRID_VERDICT["📊 Calibrated Verdict & Citation<br/><i>(.bob/verdict.json)</i>"]:::tier2
+    HM & SV --> HYBRID_VERDICT["<b>Calibrated Verdict & Citation</b><br/><i>(.bob/verdict.json)</i>"]:::tier2
     FAST_VERDICT --> HYBRID_VERDICT
 
-    subgraph S_GATE ["🛡️ Outer Harness Safety Gate (PreToolUse Hook)"]
+    subgraph S_GATE ["Outer Harness Safety Gate (PreToolUse Hook)"]
         GATE{"<b>gate-fix.sh</b><br/>PreToolUse Hook"}:::gate
         HYBRID_VERDICT --> GATE
     end
 
-    GATE -- "Status != VALID<br/>(Exit Code 2)" --> TERMINATE["🛑 Pipeline Terminates Immediately<br/><i>• Cited Commit SHA / File:Line Proof<br/>• Zero Wasted Diffs / No CI Compute</i>"]:::nonvalid
+    GATE -- "Status != VALID<br/>(Exit Code 2)" --> TERMINATE["<b>Pipeline Terminates Immediately</b><br/><i>- Cited Commit SHA / File:Line Proof<br/>- Zero Wasted Diffs / No CI Compute</i>"]:::nonvalid
 
-    GATE -- "Status == VALID<br/>(Exit Code 0)" --> ALLOW["✅ Authorization Granted<br/><i>Unlock write_file & apply_diff tools</i>"]:::valid
+    GATE -- "Status == VALID<br/>(Exit Code 0)" --> ALLOW["<b>Authorization Granted</b><br/><i>Unlock write_file & apply_diff tools</i>"]:::valid
 
-    subgraph S_GATED ["🔧 Downstream Gated Remediation (VALID Only)"]
+    subgraph S_GATED ["Downstream Gated Remediation (VALID Only)"]
         FIXER["<b>surgical-fixer (Subagent 3)</b><br/>Minimal AST patch authoring"]:::action
         RUNNER["<b>test-runner (Subagent 4)</b><br/>Execute repository test suite & linters"]:::action
         AUDIT["<b>record-verdict.sh</b><br/>PostToolUse telemetry & audit sensor"]:::action
-        PR["🚀 <b>Pull Request / Verified Diff Artifact</b><br/>• Clean branch & disclosure trailer<br/>• Complete provenance audit log"]:::action
+        PR["<b>Pull Request / Verified Diff Artifact</b><br/>- Clean branch & disclosure trailer<br/>- Complete provenance audit log"]:::action
 
         ALLOW --> FIXER --> RUNNER --> AUDIT --> PR
     end
@@ -164,7 +164,7 @@ netrani triage --repo . --issue 42 --offline
 # 2. Triage with IBM Bob 2.0 Agent Mode & custom subagents
 netrani triage --repo . --issue 42 --use-bob
 
-# 3. Run full end-to-end pipeline in dry-run mode (Triage → Fix → Verify → PR Draft)
+# 3. Run full end-to-end pipeline in dry-run mode (Triage -> Fix -> Verify -> PR Draft)
 netrani run --repo . --issue 42 --mode full --use-bob --dry-run
 
 # 4. Generate PR draft from verified fix
