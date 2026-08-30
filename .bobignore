@@ -98,6 +98,10 @@ venv/
 env/
 .netrani/
 
+# Benchmark Datasets & Fixtures (Prevent agent confirmation bias during triage)
+validation/
+netrani/fixtures/
+
 # Temporary & Scratch Files
 temp/
 *PRIVATE*
