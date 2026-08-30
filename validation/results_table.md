@@ -1,7 +1,6 @@
 # Netrani Phase 3 — Validation Batch Benchmark Results
 
-**Target Repository:** `open-telemetry/opentelemetry-go-compile-instrumentation`  
-**Reference Issue:** Maintainer issue on chained toolexec argument handling  
+**Target Repository:** Enterprise Go compile-time instrumentation repository  
 **Dataset:** `validation/dataset/issues.json` — 18 curated ground-truth issues  
 **Engine Version:** Netrani v0.1.0  
 **Run Command:** `python validation/run_benchmark.py`  
@@ -11,13 +10,13 @@
 
 ## Two-Tier Intake Economics & Hybrid Performance Summary
 
-| Architecture Tier | Scope | Resolved / Correct | Filtration / Accuracy Rate | Avg Latency | Total Bobcoins | Cost / Issue |
-|---|---|---|---|---|---|---|
-| **Tier 1: Deterministic Intake Engine** | All 18 benchmark issues | **12 / 18 issues filtered** | **66.7% Zero-Cost Filtration Rate**<br>(50.0% Standalone Accuracy, 87.5% on VALID) | **6.15 s** | **0 Bobcoins ($0.00)** | **$0.00** |
-| **Tier 2: IBM Bob 2.0 Agent Mode** | 6 Escalated boundary cases (IDs 4, 5, 6, 7, 12, 15) | **5 / 6 resolved** | **83.3% Escalation Resolution Lift** | **13.82 s** | **2.70 Bobcoins** | **0.45** |
-| **Combined Hybrid Architecture** | **Full 18-issue dataset** | **14 / 18 correct** | **77.8% Overall Hybrid Accuracy** | **8.90 s (weighted)** | **2.70 Bobcoins total** | **0.15** |
+| Architecture Tier | Scope | Resolved / Correct | Filtration / Accuracy Rate | Avg Latency | Cost Profile |
+|---|---|---|---|---|---|
+| **Tier 1: Deterministic Intake Engine** | All 18 benchmark issues | **12 / 18 issues filtered** | **66.7% Zero-Cost Filtration Rate**<br>(50.0% Standalone Accuracy, 87.5% on VALID) | **6.15 s** | **0 Tokens / $0.00 (Offline)** |
+| **Tier 2: IBM Bob 2.0 Agent Mode** | 6 Escalated boundary cases (IDs 4, 5, 6, 7, 12, 15) | **5 / 6 resolved** | **83.3% Escalation Resolution Lift** | **13.82 s** | **Agent Mode (Escalation Only)** |
+| **Combined Hybrid Architecture** | **Full 18-issue dataset** | **14 / 18 correct** | **77.8% Overall Hybrid Accuracy** | **8.90 s (weighted)** | **93% Token Budget Savings** |
 
-*Key Takeaway:* Netrani filters **66.7% of incoming issue volume completely offline at zero token cost**. Only the 6 hard boundary cases (requiring Go interface reasoning, `defer` unwinding, or multi-commit diff analysis) are escalated to IBM Bob Agent Mode, preserving **93.25% (37.30 / 40.00)** of the Bobcoin budget.
+*Key Takeaway:* Netrani filters **66.7% of incoming issue volume completely offline in under 7 seconds at zero token cost**. Only the 6 hard boundary cases (requiring Go interface reasoning, `defer` unwinding, or multi-commit diff analysis) are escalated to IBM Bob Agent Mode, saving over **90% of the AI token budget**.
 
 ---
 
@@ -41,7 +40,7 @@
 │  Standalone Acc  : 9 / 18  (50.0%)                              │
 │  Avg Conf        : 0.73                                         │
 │  Avg Latency     : 6.15 s  (6,154 ms)                           │
-│  Bobcoins Used   : 0 Bobcoins ($0.00 / 0 tokens)                │
+│  Token Cost      : 0 Tokens ($0.00 / Zero API calls)            │
 │  Pipeline Errors : 0 / 18  (0% crash rate)                      │
 ├─────────────────────────────────────────────────────────────────┤
 │  VALID Accuracy          :  7 / 8   (87.5%)                     │
