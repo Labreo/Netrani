@@ -226,7 +226,7 @@ Netrani/
 │
 ├── bob_sessions/                            # Mandatory IBM Bob IDE session consumption summaries
 │   ├── README.md                            # Bob session screenshot inventory & budget summary
-│   └── kanak_waradkar_task01..09_*.png      # 9 session consumption screenshots
+│   └── kanak_waradkar_task01..15_*.png      # 15 session consumption screenshots
 │
 ├── validation/                              # Benchmark validation artifacts
 │   ├── dataset/issues.json                  # 18-issue ground-truth dataset
