@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -249,8 +250,7 @@ class TestAuditLogSchemaValidation:
         """
         from netrani.subagents.test_runner import _run_command
 
-        # Use 'false' (always exits 1) on Unix; adapt for Windows
-        cmd = "python -c \"import sys; sys.exit(1)\""
+        cmd = f'"{sys.executable}" -c "import sys; sys.exit(1)"'
         result = _run_command(cmd, tmp_path, timeout=10)
 
         assert result.exit_code == 1
@@ -260,7 +260,7 @@ class TestAuditLogSchemaValidation:
         """_run_command must record status='passed' for a successful command."""
         from netrani.subagents.test_runner import _run_command
 
-        result = _run_command("python -c \"pass\"", tmp_path, timeout=10)
+        result = _run_command(f'"{sys.executable}" -c "pass"', tmp_path, timeout=10)
 
         assert result.exit_code == 0
         assert result.status == "passed"
@@ -271,7 +271,7 @@ class TestAuditLogSchemaValidation:
 
         # Sleep for 60 seconds but timeout after 1 second
         result = _run_command(
-            "python -c \"import time; time.sleep(60)\"",
+            f'"{sys.executable}" -c "import time; time.sleep(60)"',
             tmp_path,
             timeout=1,
         )

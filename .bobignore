@@ -63,6 +63,8 @@ ibmcloud_api_key*
 .bob/benchmark_verdicts/
 .bob/dry_run/
 .bob/artifacts/
+.bob/tasks/
+.bob/*.md
 .bob/patch.diff
 .bob/run_summary.json
 .bob/audit.log
@@ -102,7 +104,12 @@ env/
 validation/
 netrani/fixtures/
 
-# Temporary & Scratch Files
+# Scratch & Temporary Testing Files
+test_patch.*
+patch.*
+tool/
+
+# Temporary & Private Files
 temp/
 *PRIVATE*
 *.private.md
