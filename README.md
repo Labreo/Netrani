@@ -61,9 +61,14 @@ flowchart TD
     classDef input fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#f8fafc;
     classDef tier1 fill:#0f3b46,stroke:#06b6d4,stroke-width:2px,color:#ecfeff;
     classDef tier2 fill:#2e1065,stroke:#a855f7,stroke-width:2px,color:#faf5ff;
-    classDef gate fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fffbeb;
-    classDef valid fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5;
-    classDef nonvalid fill:#3b0764,stroke:#ec4899,stroke-width:2px,color:#fdf2f8;
+    classDef gate fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f8fafc;
+    
+    classDef vValid fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5;
+    classDef vObsolete fill:#0c4a6e,stroke:#0284c7,stroke-width:2px,color:#f0f9ff;
+    classDef vDuplicate fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fffbeb;
+    classDef vFalsePos fill:#701a75,stroke:#d946ef,stroke-width:2px,color:#fdf4ff;
+    
+    classDef terminate fill:#450a0a,stroke:#ef4444,stroke-width:2px,color:#fef2f2;
     classDef action fill:#172554,stroke:#3b82f6,stroke-width:2px,color:#eff6ff;
 
     ISSUE["<b>Incoming Issue Report</b><br/><i>Title, Body, Stack Trace, Environment</i>"]:::input --> TIER1
@@ -81,25 +86,34 @@ flowchart TD
         BOB_ORCH --> HM & SV
     end
 
-    CONF -- "Yes (66.7% Volume)" --> FAST_VERDICT["Direct Deterministic Verdict"]:::tier1
+    CONF -- "Yes (66.7% Volume)" --> S_VERDICTS
     CONF -- "No (Boundary Cases)" --> BOB_ORCH
+    HM & SV --> S_VERDICTS
 
-    HM & SV --> HYBRID_VERDICT["<b>Calibrated Verdict & Citation</b><br/><i>(.bob/verdict.json)</i>"]:::tier2
-    FAST_VERDICT --> HYBRID_VERDICT
+    subgraph S_VERDICTS ["4 Distinct Cited Verdicts (.bob/verdict.json)"]
+        V_VALID["<b>VALID</b><br/>Reachable unguarded defect<br/><i>(Green: Proceed to fix)</i>"]:::vValid
+        V_OBSOLETE["<b>OBSOLETE</b><br/>Already patched on main<br/><i>(Blue: Cited commit SHA)</i>"]:::vObsolete
+        V_DUPLICATE["<b>DUPLICATE</b><br/>Existing open issue or PR<br/><i>(Orange: Cited issue URL)</i>"]:::vDuplicate
+        V_FALSE_POS["<b>FALSE_POSITIVE</b><br/>Refuted by AST invariants<br/><i>(Magenta: Cited file:line)</i>"]:::vFalsePos
+    end
 
     subgraph S_GATE ["Outer Harness Safety Gate (PreToolUse Hook)"]
         GATE{"<b>gate-fix.sh</b><br/>PreToolUse Hook"}:::gate
-        HYBRID_VERDICT --> GATE
     end
 
-    GATE -- "Status != VALID<br/>(Exit Code 2)" --> TERMINATE["<b>Pipeline Terminates Immediately</b><br/><i>- Cited Commit SHA / File:Line Proof<br/>- Zero Wasted Diffs / No CI Compute</i>"]:::nonvalid
+    V_VALID --> GATE
+    V_OBSOLETE --> GATE
+    V_DUPLICATE --> GATE
+    V_FALSE_POS --> GATE
 
-    GATE -- "Status == VALID<br/>(Exit Code 0)" --> ALLOW["<b>Authorization Granted</b><br/><i>Unlock write_file & apply_diff tools</i>"]:::valid
+    GATE -- "Status != VALID<br/>(Exit Code 2)" --> TERMINATE["<b>Pipeline Terminates Immediately</b><br/>- Certified proof cited in issue response<br/>- Zero wasted diffs / No CI compute"]:::terminate
+
+    GATE -- "Status == VALID<br/>(Exit Code 0)" --> ALLOW["<b>Authorization Granted</b><br/>Unlock write_file & apply_diff tools"]:::vValid
 
     subgraph S_GATED ["Downstream Gated Remediation (VALID Only)"]
         FIXER["<b>surgical-fixer (Subagent 3)</b><br/>Minimal AST patch authoring"]:::action
         RUNNER["<b>test-runner (Subagent 4)</b><br/>Execute repository test suite & linters"]:::action
-        AUDIT["<b>record-verdict.sh</b><br/>PostToolUse telemetry & audit sensor"]:::action
+        AUDIT["<b>record-verdict.sh</b><br/>PostToolUse telemetry sensor"]:::action
         PR["<b>Pull Request / Verified Diff Artifact</b><br/>- Clean branch & disclosure trailer<br/>- Complete provenance audit log"]:::action
 
         ALLOW --> FIXER --> RUNNER --> AUDIT --> PR
